@@ -8,6 +8,7 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
   const orbitLineRef = useRef();
   const trailRef = useRef();
   const coverageConeRef = useRef();
+  const coverageRingRef = useRef();
   
   // Constants
   const EARTH_RADIUS = 2; // Earth radius in our 3D scene (represents 6371 km)
@@ -77,7 +78,7 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
       satelliteAltitudeKm: altitudeReal
     };
   };
-  
+
   // Calculate orbit path for visualization
   const orbitCurve = useMemo(() => {
     if (!tleData) return null;
@@ -121,7 +122,7 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
         );
       }
 
-      // Update coverage cone
+      // Update coverage cone & ring
       if (showCoverage && coverageConeRef.current) {
         const coverage = calculateCoverageGeometry(scenePos);
         
@@ -133,8 +134,8 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
           onCoverageUpdate({ ...coverage, direction: { x: directionUnit.x, y: directionUnit.y, z: directionUnit.z } });
         }
         
-        // Only show cone if there's meaningful coverage (satellite is above Earth)
-        if (coverage.height > 0.01) { // Minimum height threshold
+        // Only show visuals if there's meaningful coverage (satellite is above Earth)
+        if (coverage.height > 0.01) {
           // Calculate direction from satellite to Earth center
           const earthCenter = new THREE.Vector3(0, 0, 0);
           const satellitePosition = new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z);
@@ -146,38 +147,65 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
           
           const coneGeometry = new THREE.ConeGeometry(safeRadius, safeHeight, 16);
           
-          // CORRECT APPROACH: Position cone so its tip is at satellite and edges are tangent to Earth
-          // Three.js cone: tip at +Y=height/2, base at -Y=-height/2, center at origin
-          // We want: tip at satellite position, cone edges tangent to Earth surface
-          
-          // Calculate where the cone center should be:
-          // If tip is at satellite, then cone center is (height/2) distance toward Earth from satellite
+          // Position the cone so tip is at satellite and extends toward Earth
           const coneCenter = satellitePosition.clone().add(
             directionToEarth.clone().multiplyScalar(safeHeight / 2)
           );
-          
-          // Position the cone
           coverageConeRef.current.position.copy(coneCenter);
           
           // Rotate cone so tip (+Y) points back toward satellite
-          const defaultUp = new THREE.Vector3(0, 1, 0); // Default cone tip direction (+Y)
+          const defaultUp = new THREE.Vector3(0, 1, 0);
           const quaternion = new THREE.Quaternion();
-          // Direction from cone center to satellite (where we want the tip to point)
           const tipDirection = satellitePosition.clone().sub(coneCenter).normalize();
           quaternion.setFromUnitVectors(defaultUp, tipDirection);
           coverageConeRef.current.setRotationFromQuaternion(quaternion);
           
-          // Update geometry
+          // Update cone geometry
           if (coverageConeRef.current.geometry) {
             coverageConeRef.current.geometry.dispose();
           }
           coverageConeRef.current.geometry = coneGeometry;
-          
-          // Make sure the cone is visible
           coverageConeRef.current.visible = true;
+
+          // Update intersection ring on Earth's surface
+          if (coverageRingRef.current) {
+            const axis = new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z).normalize();
+            const psi = coverage.centralAngle || 0;
+            const ringRadius = EARTH_RADIUS * Math.sin(psi);
+            const planeOffset = EARTH_RADIUS * Math.cos(psi);
+
+            if (ringRadius > 0.0005) {
+              // Build orthonormal basis (axis, b1, b2)
+              let up = new THREE.Vector3(0, 1, 0);
+              if (Math.abs(axis.dot(up)) > 0.99) up = new THREE.Vector3(1, 0, 0);
+              const b1 = new THREE.Vector3().crossVectors(axis, up).normalize();
+              const b2 = new THREE.Vector3().crossVectors(axis, b1).normalize();
+
+              const center = axis.clone().multiplyScalar(planeOffset);
+              const segments = 128;
+              const points = [];
+              for (let i = 0; i <= segments; i++) {
+                const t = (i / segments) * Math.PI * 2;
+                const pt = center.clone()
+                  .add(b1.clone().multiplyScalar(ringRadius * Math.cos(t)))
+                  .add(b2.clone().multiplyScalar(ringRadius * Math.sin(t)));
+                points.push(pt);
+              }
+
+              const ringGeometry = new THREE.BufferGeometry().setFromPoints(points);
+              if (coverageRingRef.current.geometry) {
+                coverageRingRef.current.geometry.dispose();
+              }
+              coverageRingRef.current.geometry = ringGeometry;
+              coverageRingRef.current.visible = true;
+            } else {
+              coverageRingRef.current.visible = false;
+            }
+          }
         } else {
-          // Hide cone if satellite is too close to Earth
+          // Hide if no coverage
           coverageConeRef.current.visible = false;
+          if (coverageRingRef.current) coverageRingRef.current.visible = false;
         }
       }
       
@@ -256,6 +284,14 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
             depthWrite={false}
           />
         </mesh>
+      )}
+
+      {/* Coverage boundary ring on Earth */}
+      {showCoverage && (
+        <line ref={coverageRingRef}>
+          <bufferGeometry />
+          <lineBasicMaterial color={color} transparent opacity={0.8} linewidth={1} />
+        </line>
       )}
       
       {/* Satellite body */}
