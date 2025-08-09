@@ -121,6 +121,32 @@ function ControlPanel({
         </div>
       </div>
       
+      {/* Minimum Elevation Angle Control */}
+      <div className="control-group">
+        <label>Minimum Elevation Angle</label>
+        <input
+          type="range"
+          min="0"
+          max="90"
+          step="1"
+          value={minElevationAngle}
+          onChange={(e) => setMinElevationAngle(parseFloat(e.target.value))}
+          style={{
+            background: 'linear-gradient(to right, #333, #ff8800)',
+            height: '8px',
+            borderRadius: '4px',
+            outline: 'none',
+            appearance: 'none'
+          }}
+        />
+        <div className="speed-display">
+          {minElevationAngle}° {minElevationAngle === 0 ? '(Maximum Coverage)' : '(Reduced Coverage)'}
+        </div>
+        <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>
+          Ground antenna elevation angle. 0° = horizontal (max coverage), 90° = vertical (min coverage)
+        </div>
+      </div>
+      
       {/* TLE Satellites Section */}
       <div className="control-group">
         <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#00ff00' }}>
@@ -399,32 +425,6 @@ MOLNIYA 1-91
             ))}
           </div>
         )}
-      </div>
-      
-      {/* Minimum Elevation Angle Control */}
-      <div className="control-group">
-        <label>Minimum Elevation Angle</label>
-        <input
-          type="range"
-          min="0"
-          max="90"
-          step="1"
-          value={minElevationAngle}
-          onChange={(e) => setMinElevationAngle(parseFloat(e.target.value))}
-          style={{
-            background: 'linear-gradient(to right, #333, #ff8800)',
-            height: '8px',
-            borderRadius: '4px',
-            outline: 'none',
-            appearance: 'none'
-          }}
-        />
-        <div className="speed-display">
-          {minElevationAngle}° {minElevationAngle === 0 ? '(Maximum Coverage)' : '(Reduced Coverage)'}
-        </div>
-        <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>
-          Ground antenna elevation angle. 0° = horizontal (max coverage), 90° = vertical (min coverage)
-        </div>
       </div>
       
       

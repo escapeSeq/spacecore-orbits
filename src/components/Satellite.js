@@ -139,7 +139,7 @@ function Satellite({ simulationSpeed, satelliteParams }) {
       </line>
       
       {/* Satellite body */}
-      <group ref={satelliteRef}>
+      <group ref={satelliteRef} scale={0.3}>
         {/* Main body */}
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[0.1, 0.1, 0.2]} />

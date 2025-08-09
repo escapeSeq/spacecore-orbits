@@ -259,7 +259,7 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
       )}
       
       {/* Satellite body */}
-      <group ref={satelliteRef}>
+      <group ref={satelliteRef} scale={0.3}>
         {/* Main body */}
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[0.1, 0.1, 0.2]} />
