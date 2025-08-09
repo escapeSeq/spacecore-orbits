@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleParser';
 
-function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showTrail = true, showCoverage = true, onCoverageUpdate, minElevationAngle = 0 }) {
+function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, onCoverageUpdate, minElevationAngle = 0 }) {
   const satelliteRef = useRef();
   const orbitLineRef = useRef();
   const coverageConeRef = useRef();
@@ -27,36 +27,38 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
 
     // Validation: ensure satellite is above Earth's surface
     if (realSatDistance <= REAL_EARTH_RADIUS) {
-      return { height: 0, radius: 0, angle: 0, coverageRadius: 0, coveragePercentage: 0, coverageAreaKm2: 0, centralAngle: 0, satelliteAltitudeKm: 0 };
+      return { height: 0, radius: 0, angle: 0, coverageRadius: 0, coveragePercentage: 0, coverageAreaKm2: 0, centralAngle: 0, satelliteAltitudeKm: 0, u: 1 };
     }
 
     // Geometry for minimum elevation angle constraint
     const degToRad = Math.PI / 180;
-    const eRad = Math.max(0, Math.min(90, minElevationAngle)) * degToRad; // clamp 0..90 deg
+    const e = Math.max(0, Math.min(90, minElevationAngle)) * degToRad; // clamp 0..90 deg
     const u = REAL_EARTH_RADIUS / realSatDistance; // R/d
 
-    // Central angle without elevation constraint (horizon)
-    const psi0 = Math.acos(Math.min(1, Math.max(-1, u)));
-
-    // Central angle with minimum elevation e: psi_e = arccos(u * cos e) - e
-    const acosArg = u * Math.cos(eRad);
-    const psi_e = Math.max(0, Math.acos(Math.min(1, Math.max(-1, acosArg))) - eRad);
+    // Correct central angle ψ using exact geometry:
+    // cos ψ = u * cos^2 e + sin e * sqrt(1 - u^2 cos^2 e)
+    const cosE = Math.cos(e);
+    const sinE = Math.sin(e);
+    const term = 1 - Math.min(1, Math.max(0, u * u * cosE * cosE));
+    const cosPsiRaw = u * cosE * cosE + sinE * Math.sqrt(Math.max(0, term));
+    const cosPsi = Math.min(1, Math.max(-1, cosPsiRaw));
+    const psi = Math.acos(cosPsi);
 
     // Plane containing the coverage circle is at distance p from Earth's center along the axis
-    const p = REAL_EARTH_RADIUS * Math.cos(psi_e);
+    const p = REAL_EARTH_RADIUS * cosPsi;
 
     // Distance from satellite to that plane along axis toward Earth's center
     const coneHeightReal = Math.max(0, realSatDistance - p);
 
-    // Circle radius on that plane (equals circle on Earth's surface at central angle psi_e)
-    const coneBaseRadiusReal = REAL_EARTH_RADIUS * Math.sin(psi_e);
+    // Circle radius on that plane (equals circle on Earth's surface at central angle psi)
+    const coneBaseRadiusReal = REAL_EARTH_RADIUS * Math.sin(psi);
 
     // Scale to scene coordinates
     const coneHeight = (coneHeightReal / REAL_EARTH_RADIUS) * EARTH_RADIUS;
     const coneBaseRadius = (coneBaseRadiusReal / REAL_EARTH_RADIUS) * EARTH_RADIUS;
 
-    // Coverage metrics based on spherical cap with central angle psi_e
-    const sphericalCapArea = 2 * Math.PI * REAL_EARTH_RADIUS * REAL_EARTH_RADIUS * (1 - Math.cos(psi_e));
+    // Coverage metrics based on spherical cap with central angle psi
+    const sphericalCapArea = 2 * Math.PI * REAL_EARTH_RADIUS * REAL_EARTH_RADIUS * (1 - cosPsi);
     const totalEarthArea = 4 * Math.PI * REAL_EARTH_RADIUS * REAL_EARTH_RADIUS;
     const coveragePercentage = (sphericalCapArea / totalEarthArea) * 100;
 
@@ -65,12 +67,13 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
     return {
       height: coneHeight,
       radius: coneBaseRadius,
-      angle: psi_e, // store central angle for reference
+      angle: psi,
       coverageRadius: (coneBaseRadiusReal / REAL_EARTH_RADIUS) * EARTH_RADIUS,
       coveragePercentage,
       coverageAreaKm2: sphericalCapArea,
-      centralAngle: psi_e,
-      satelliteAltitudeKm: altitudeReal
+      centralAngle: psi,
+      satelliteAltitudeKm: altitudeReal,
+      u
     };
   };
 

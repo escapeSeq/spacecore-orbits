@@ -115,6 +115,60 @@ function ControlPanel({
     const tleText = `${sample.name}\n${sample.line1}\n${sample.line2}`;
     setTleInput(tleText);
   };
+
+  // Helper: replace mean anomaly in TLE line 2 (columns 43-51) with new value in degrees
+  const replaceMeanAnomaly = (line2, meanAnomalyDeg) => {
+    const wrapped = ((meanAnomalyDeg % 360) + 360) % 360;
+    const field = wrapped.toFixed(4).toString().padStart(8, ' ');
+    if (line2.length < 52) return line2; // safety
+    return line2.slice(0, 43) + field + line2.slice(51);
+  };
+
+  // Helper: replace inclination in TLE line 2 (columns 8-16)
+  const replaceInclination = (line2, inclinationDeg) => {
+    const clamped = Math.max(0, Math.min(180, inclinationDeg));
+    const field = clamped.toFixed(4).toString().padStart(8, ' ');
+    if (line2.length < 17) return line2;
+    return line2.slice(0, 8) + field + line2.slice(16);
+  };
+
+  // Helper: replace RAAN in TLE line 2 (columns 17-25)
+  const replaceRAAN = (line2, raanDeg) => {
+    const wrapped = ((raanDeg % 360) + 360) % 360;
+    const field = wrapped.toFixed(4).toString().padStart(8, ' ');
+    if (line2.length < 26) return line2;
+    return line2.slice(0, 17) + field + line2.slice(25);
+  };
+
+  // Compute minimal satellites along same plane to wrap 360° using centralAngle (psi)
+  const computeMinimalCount = (centralAngle) => {
+    if (!isFinite(centralAngle) || centralAngle <= 0) return 1;
+    const psiDeg = centralAngle * 180 / Math.PI;
+    // Heuristic: dense spacing along orbit to ensure overlap
+    return Math.max(3, Math.min(120, Math.ceil(360 / (psiDeg * 0.8))));
+  };
+
+  // Compute a robust set of planes spanning 0..90 deg to target full Earth coverage
+  const computePlanes = (baseInclinationDeg, centralAngle) => {
+    const psiDeg = Math.max(1, (centralAngle * 180) / Math.PI);
+    // Step planes no larger than psiDeg*0.8 to ensure overlap between latitude bands
+    const step = Math.max(5, psiDeg * 0.8);
+    const inclinations = [];
+    for (let inc = 0; inc < 90 - 1e-6; inc += step) {
+      inclinations.push(+inc.toFixed(2));
+    }
+    inclinations.push(90); // include polar plane to cover poles
+
+    // Prefer including the original plane if not already close
+    if (isFinite(baseInclinationDeg)) {
+      const close = inclinations.some(v => Math.abs(v - baseInclinationDeg) < 0.5);
+      if (!close) inclinations.push(+baseInclinationDeg.toFixed(2));
+    }
+
+    // Deduplicate and sort
+    const uniq = Array.from(new Set(inclinations.map(v => +v.toFixed(2)))).sort((a,b)=>a-b);
+    return uniq;
+  };
   
   return (
     <div className="control-panel">
@@ -242,7 +296,7 @@ function ControlPanel({
         </h3>
         
         {/* Add / Show Visible TLE buttons */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => setShowTleInput(!showTleInput)}
             style={{
@@ -287,6 +341,63 @@ function ControlPanel({
           >
             {showVisibleTle ? 'Hide Visible TLE' : 'Show Visible TLE'}
           </button>
+
+          {/* Minimal constellation button when exactly one satellite is visible */}
+          {(() => {
+            const visible = tleSatellites.filter(s => s.showCoverage && s.rawLine1 && s.rawLine2);
+            if (visible.length !== 1) return null;
+            const sat = visible[0];
+            const cov = satelliteCoverageData[sat.id];
+            const psi = cov?.centralAngle;
+            const N = computeMinimalCount(psi);
+            return (
+              <button
+                onClick={() => {
+                  if (!sat.rawLine1 || !sat.rawLine2) return;
+                  const psiLocal = psi || (Math.PI/6);
+                  const planes = computePlanes(sat.tleData.inclination, psiLocal);
+                  const P = planes.length;
+                  // Original orbital elements
+                  const origM = parseFloat(sat.rawLine2.substring(43, 51));
+                  const origRAAN = parseFloat(sat.rawLine2.substring(17, 25));
+
+                  let idx = 1;
+                  for (let p = 0; p < P; p++) {
+                    const incDeg = planes[p];
+                    // Distribute RAANs evenly to interleave planes
+                    const raanDeg = ((isFinite(origRAAN) ? origRAAN : 0) + (360 / P) * p) % 360;
+                    for (let k = 0; k < N; k++) {
+                      // Skip original satellite slot (best-effort) if same plane and phase
+                      if (p === 0 && k === 0 && Math.abs(incDeg - sat.tleData.inclination) < 0.5) continue;
+                      const deltaM = (360 / N) * k;
+                      const newM = ((isFinite(origM) ? origM : 0) + deltaM) % 360;
+                      let line2 = sat.rawLine2;
+                      line2 = replaceInclination(line2, incDeg);
+                      line2 = replaceRAAN(line2, raanDeg);
+                      line2 = replaceMeanAnomaly(line2, newM);
+                      const name = `${sat.tleData.name} [${idx + 1}/${P*N}]`;
+                      addTLESatellite(name, sat.rawLine1, line2);
+                      idx++;
+                    }
+                  }
+                }}
+                title="Add planes (inclination) and phased satellites to target full Earth coverage"
+                style={{
+                  background: '#0088cc',
+                  color: 'white',
+                  border: '1px solid #00ccff',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  flex: '0 0 auto'
+                }}
+              >
+                Show minimal constellation (~100% coverage)
+              </button>
+            );
+          })()}
         </div>
 
         {/* Visible satellites TLE textbox */}

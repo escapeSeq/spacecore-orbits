@@ -83,31 +83,57 @@ function App() {
   const [showEarth, setShowEarth] = useState(true);
   const [showEarthGrid, setShowEarthGrid] = useState(true);
 
-  // Precompute quasi-uniform samples on the unit sphere (Fibonacci lattice)
-  const sphereSamples = useMemo(() => {
-    const NUM_SAMPLES = 2048; // balance accuracy and speed
-    const samples = new Array(NUM_SAMPLES);
-    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    for (let i = 0; i < NUM_SAMPLES; i++) {
-      const t = (i + 0.5) / NUM_SAMPLES;
-      const z = 1 - 2 * t;
-      const r = Math.sqrt(Math.max(0, 1 - z * z));
-      const theta = i * goldenAngle;
-      const x = r * Math.cos(theta);
-      const y = r * Math.sin(theta);
-      samples[i] = { x, y, z };
-    }
-    return samples;
-  }, []);
-
   const REAL_EARTH_RADIUS_KM = 6378.137;
   const totalEarthAreaKm2 = 4 * Math.PI * REAL_EARTH_RADIUS_KM * REAL_EARTH_RADIUS_KM;
 
-  // Recompute global union coverage using current per-satellite coverage data
+  // Deterministic lat-lon weighted grid (cached by resolution)
+  const gridCacheRef = useRef({});
+  const getLatLonGrid = (latStepDeg, lonStepDeg) => {
+    const key = `${latStepDeg}:${lonStepDeg}`;
+    if (gridCacheRef.current[key]) return gridCacheRef.current[key];
+
+    const latSteps = Math.round(180 / latStepDeg);
+    const lonSteps = Math.round(360 / lonStepDeg);
+    const points = [];
+    const weights = [];
+
+    // Lat bands from -90 to +90
+    for (let i = 0; i < latSteps; i++) {
+      const lat1 = -90 + i * latStepDeg;
+      const lat2 = lat1 + latStepDeg;
+      // Use band center for direction sampling
+      const latCenter = (lat1 + lat2) / 2;
+      const phi = (latCenter * Math.PI) / 180; // latitude
+      const cosPhi = Math.cos(phi);
+      const sinPhi = Math.sin(phi);
+
+      // Band area fraction for one lon cell: Δλ (sinφ2 − sinφ1) / (4π)
+      const sinPhi1 = Math.sin((lat1 * Math.PI) / 180);
+      const sinPhi2 = Math.sin((lat2 * Math.PI) / 180);
+      const bandAreaFracPerLon = ((lonStepDeg * Math.PI) / 180) * (sinPhi2 - sinPhi1) / (4 * Math.PI);
+
+      for (let j = 0; j < lonSteps; j++) {
+        const lonCenter = -180 + (j + 0.5) * lonStepDeg;
+        const lambda = (lonCenter * Math.PI) / 180;
+        const cosLambda = Math.cos(lambda);
+        const sinLambda = Math.sin(lambda);
+        const x = cosPhi * cosLambda;
+        const y = sinPhi;
+        const z = cosPhi * sinLambda;
+        points.push({ x, y, z });
+        weights.push(bandAreaFracPerLon);
+      }
+    }
+
+    const grid = { points, weights };
+    gridCacheRef.current[key] = grid;
+    return grid;
+  };
+
+  // Recompute global union coverage using deterministic grid
   const recomputeGlobalCoverage = () => {
-    const activeSatIds = tleSatellites
-      .filter(s => s.showCoverage)
-      .map(s => s.id);
+    const active = tleSatellites.filter(s => s.showCoverage);
+    const activeSatIds = active.map(s => s.id);
 
     if (activeSatIds.length === 0) {
       setGlobalCoveragePercent(0);
@@ -115,7 +141,7 @@ function App() {
       return;
     }
 
-    const sats = [];
+    let rawSats = [];
     for (const id of activeSatIds) {
       const cov = satelliteCoverageData[id];
       if (!cov || !cov.direction || !isFinite(cov.centralAngle) || cov.centralAngle <= 0) continue;
@@ -123,7 +149,32 @@ function App() {
       const dirLen = Math.sqrt(x * x + y * y + z * z) || 1;
       const ux = x / dirLen, uy = y / dirLen, uz = z / dirLen;
       const cosThreshold = Math.cos(cov.centralAngle);
-      sats.push({ ux, uy, uz, cosThreshold });
+      rawSats.push({ ux, uy, uz, cosThreshold, psi: cov.centralAngle });
+    }
+
+    if (rawSats.length === 0) {
+      setGlobalCoveragePercent(0);
+      setGlobalCoverageAreaKm2(0);
+      return;
+    }
+
+    // Drop dominated caps (caps entirely contained by another cap)
+    const sats = [];
+    for (let i = 0; i < rawSats.length; i++) {
+      let contained = false;
+      const ai = rawSats[i];
+      for (let j = 0; j < rawSats.length; j++) {
+        if (i === j) continue;
+        const aj = rawSats[j];
+        // angular separation between centers
+        const dot = ai.ux * aj.ux + ai.uy * aj.uy + ai.uz * aj.uz;
+        const sep = Math.acos(Math.min(1, Math.max(-1, dot)));
+        if (aj.psi >= ai.psi + sep - 1e-12) {
+          contained = true;
+          break;
+        }
+      }
+      if (!contained) sats.push(ai);
     }
 
     if (sats.length === 0) {
@@ -132,22 +183,37 @@ function App() {
       return;
     }
 
-    let coveredCount = 0;
-    for (const p of sphereSamples) {
-      const px = p.x, py = p.y, pz = p.z; // unit vector
+    // Choose resolution adaptively based on constellation size and smallest cap
+    const minPsiDeg = sats.reduce((m, s) => Math.min(m, s.psi * 180 / Math.PI), Infinity);
+    let latStep = 1.0;
+    let lonStep = 1.0;
+    if (sats.length > 40 || minPsiDeg < 3) {
+      latStep = 0.25; lonStep = 0.25;
+    } else if (sats.length > 20 || minPsiDeg < 6) {
+      latStep = 0.5; lonStep = 0.5;
+    }
+
+    const { points, weights } = getLatLonGrid(latStep, lonStep);
+
+    const eps = 1e-12;
+    let coveredFrac = 0;
+    for (let idx = 0; idx < points.length; idx++) {
+      const p = points[idx];
+      const w = weights[idx];
+      const px = p.x, py = p.y, pz = p.z;
       let covered = false;
       for (let i = 0; i < sats.length; i++) {
         const s = sats[i];
         const dot = px * s.ux + py * s.uy + pz * s.uz;
-        if (dot >= s.cosThreshold) { // inside spherical cap
+        if (dot + eps >= s.cosThreshold) {
           covered = true;
           break;
         }
       }
-      if (covered) coveredCount++;
+      if (covered) coveredFrac += w;
     }
 
-    const percent = (coveredCount / sphereSamples.length) * 100;
+    const percent = coveredFrac * 100;
     setGlobalCoveragePercent(percent);
     setGlobalCoverageAreaKm2((percent / 100) * totalEarthAreaKm2);
   };
@@ -190,14 +256,12 @@ function App() {
       return next;
     });
     // Recompute union coverage on each update
-    // Note: This is a simple approach; can be throttled if needed
     setTimeout(recomputeGlobalCoverage, 0);
   };
 
   // Global visibility toggle functions
   const toggleAllSatelliteVisibility = (property, value) => {
     setTleSatellites(prev => prev.map(sat => ({ ...sat, [property]: value })));
-    // Recompute if coverage visibility changed
     if (property === 'showCoverage') {
       setTimeout(recomputeGlobalCoverage, 0);
     }
@@ -206,16 +270,21 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="App">
-        <SpaceSimulation 
-          simulationSpeed={simulationSpeed}
-          satelliteParams={satelliteParams}
-          tleSatellites={tleSatellites}
-          showManualSatellite={showManualSatellite}
-          updateSatelliteCoverage={updateSatelliteCoverage}
-          minElevationAngle={minElevationAngle}
-          showEarth={showEarth}
-          showEarthGrid={showEarthGrid}
-        />
+        <div className="canvas-wrapper">
+          <div className="canvas-left-spacer" />
+          <div className="canvas-scene">
+            <SpaceSimulation 
+              simulationSpeed={simulationSpeed}
+              satelliteParams={satelliteParams}
+              tleSatellites={tleSatellites}
+              showManualSatellite={showManualSatellite}
+              updateSatelliteCoverage={updateSatelliteCoverage}
+              minElevationAngle={minElevationAngle}
+              showEarth={showEarth}
+              showEarthGrid={showEarthGrid}
+            />
+          </div>
+        </div>
         <ControlPanel 
           simulationSpeed={simulationSpeed}
           setSimulationSpeed={setSimulationSpeed}

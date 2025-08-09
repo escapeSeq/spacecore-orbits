@@ -3,6 +3,7 @@
   width: 100vw;
   height: 100vh;
   background: #000;
+  overflow: hidden;
 }
 
 .control-panel {
@@ -15,8 +16,8 @@
   border-radius: 10px;
   border: 1px solid #333;
   backdrop-filter: blur(10px);
-  min-width: 300px;
-  max-width: 350px;
+  min-width: 320px;
+  max-width: 360px;
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -45,6 +46,26 @@
 
 .control-panel::-webkit-scrollbar-thumb:hover {
   background: #00cc00;
+}
+
+/* Canvas container to shift scene */
+.canvas-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+}
+
+/* Spacer equal to control panel width + margins */
+.canvas-left-spacer {
+  width: 400px; /* approx: panel (360) + margins */
+  flex: 0 0 auto;
+}
+
+.canvas-scene {
+  flex: 1 1 auto;
 }
 
 .control-group {
