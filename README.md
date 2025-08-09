@@ -1,6 +1,9 @@
-# SpaceCore Simulation
+# Spacecore Orbits
 
 A React-based 3D Earth and satellite simulation using WebGL and Three.js. This application provides a realistic simulation of Earth's rotation and satellite orbital mechanics with adjustable parameters and time controls.
+
+<img src="screenshots/screen1.png" width="45%" alt="Controls">&nbsp;
+<img src="screenshots/screen2.png" width="45%" alt="Satellite view">
 
 ## Features
 
@@ -40,6 +43,7 @@ The easiest way to run SpaceCore Simulation is using Docker:
 
 #### Production Build
 1. **Clone and navigate to the project directory**:
+
    ```bash
    git clone <repository-url>
    cd spacecore-simulation

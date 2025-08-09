@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SAMPLE_TLES } from '../utils/tleParser';
 
 function ControlPanel({ 
@@ -12,11 +12,38 @@ function ControlPanel({
   minElevationAngle = 0,
   setMinElevationAngle,
   globalCoveragePercent = 0,
-  globalCoverageAreaKm2 = 0
+  globalCoverageAreaKm2 = 0,
+  showEarth,
+  setShowEarth,
+  showEarthGrid,
+  setShowEarthGrid
 }) {
   // TLE input state
   const [tleInput, setTleInput] = useState('');
   const [showTleInput, setShowTleInput] = useState(false);
+  const [showVisibleTle, setShowVisibleTle] = useState(false);
+
+  // Simulation time (YYYY-MM-DD hh:mm)
+  const [simTimeStr, setSimTimeStr] = useState('');
+  const simAnchorRealMsRef = useRef(Date.now());
+  const simAnchorDateRef = useRef(new Date());
+  useEffect(() => {
+    const update = () => {
+      const nowMs = Date.now();
+      const elapsedRealMs = nowMs - simAnchorRealMsRef.current;
+      const simMs = simAnchorDateRef.current.getTime() + elapsedRealMs * simulationSpeed;
+      const d = new Date(simMs);
+      const yyyy = d.getFullYear();
+      const mm2 = String(d.getMonth() + 1).padStart(2, '0');
+      const dd2 = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      setSimTimeStr(`${yyyy}-${mm2}-${dd2} ${hh}:${mi}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [simulationSpeed]);
   
   const handleSpeedChange = (e) => {
     setSimulationSpeed(parseFloat(e.target.value));
@@ -91,9 +118,12 @@ function ControlPanel({
   
   return (
     <div className="control-panel">
-      <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#00ff00' }}>
+      <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#00ff00' }}>
         🛰️ Spacecore Orbits
       </h2>
+      <div style={{ margin: '0 0 20px 0', fontSize: '12px', color: '#ccc' }}>
+        {simTimeStr}
+      </div>
       
       {/* Simulation Speed Control */}
       <div className="control-group">
@@ -149,9 +179,6 @@ function ControlPanel({
       
       {/* TLE Satellites Section */}
       <div className="control-group">
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#00ff00' }}>
-          TLE Satellites ({tleSatellites.length})
-        </h3>
         
         {/* Global Visibility Controls */}
         {tleSatellites.length > 0 && (
@@ -163,9 +190,9 @@ function ControlPanel({
             border: '1px solid rgba(0, 255, 0, 0.3)'
           }}>
             <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '5px', fontWeight: 'bold' }}>
-              🌐 Global Controls (All Satellites):
+              🌐 Global Controls:
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '10px' }}>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               <label style={{ cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -178,20 +205,29 @@ function ControlPanel({
               <label style={{ cursor: 'pointer' }}>
                 <input
                   type="checkbox"
-                  checked={tleSatellites.every(sat => sat.showTrail)}
-                  onChange={(e) => toggleAllSatelliteVisibility('showTrail', e.target.checked)}
-                  style={{ marginRight: '4px' }}
-                />
-                Trails
-              </label>
-              <label style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
                   checked={tleSatellites.every(sat => sat.showCoverage)}
                   onChange={(e) => toggleAllSatelliteVisibility('showCoverage', e.target.checked)}
                   style={{ marginRight: '4px' }}
                 />
                 Coverage
+              </label>
+              <label style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showEarth}
+                  onChange={(e) => setShowEarth(e.target.checked)}
+                  style={{ marginRight: '4px' }}
+                />
+                Globe
+              </label>
+              <label style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showEarthGrid}
+                  onChange={(e) => setShowEarthGrid(e.target.checked)}
+                  style={{ marginRight: '4px' }}
+                />
+                Grid
               </label>
             </div>
             <div style={{ marginTop: '8px', fontSize: '10px', color: '#00ff00' }}>
@@ -202,34 +238,84 @@ function ControlPanel({
             </div>
           </div>
         )}
+
+        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#00ff00' }}>
+          TLE Satellites ({tleSatellites.length})
+        </h3>
         
-        <button
-          onClick={() => setShowTleInput(!showTleInput)}
-          style={{
-            background: showTleInput ? '#ff4444' : '#00aa00',
-            color: 'white',
-            border: showTleInput ? '1px solid #ff4444' : '1px solid #00ff00',
-            padding: '10px 16px',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: 'bold',
-            marginBottom: '10px',
-            width: '100%',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = 'translateY(-1px)';
-            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-          }}
-        >
-          {showTleInput ? '✕ Cancel' : '🛰️ Add TLE Satellite(s)'}
-        </button>
+        {/* Add / Show Visible TLE buttons */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          <button
+            onClick={() => setShowTleInput(!showTleInput)}
+            style={{
+              background: showTleInput ? '#ff4444' : '#00aa00',
+              color: 'white',
+              border: showTleInput ? '1px solid #ff4444' : '1px solid #00ff00',
+              padding: '6px 10px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              flex: '0 0 auto',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.transform = 'translateY(-1px)';
+              e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+            }}
+          >
+            {showTleInput ? '✕ Cancel' : '🛰️ Add TLE Satellite(s)'}
+          </button>
+
+          {/* Show Visible TLE button (no auto copy) */}
+          <button
+            onClick={() => setShowVisibleTle(prev => !prev)}
+            style={{
+              background: '#00aa00',
+              color: 'white',
+              border: '1px solid #00ff00',
+              padding: '6px 10px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              flex: '0 0 auto'
+            }}
+          >
+            {showVisibleTle ? 'Hide Visible TLE' : 'Show Visible TLE'}
+          </button>
+        </div>
+
+        {/* Visible satellites TLE textbox */}
+        {showVisibleTle && (
+          <div style={{ marginBottom: '10px' }}>
+            <textarea
+              readOnly
+              value={tleSatellites
+                .filter(s => s.showCoverage && s.rawLine1 && s.rawLine2)
+                .map(s => `${s.rawName || s.tleData.name}\n${s.rawLine1}\n${s.rawLine2}`)
+                .join('\n\n')}
+              rows={8}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: '#111',
+                color: '#ddd',
+                border: '1px solid #555',
+                borderRadius: '3px',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                resize: 'vertical',
+                lineHeight: '1.2'
+              }}
+            />
+          </div>
+        )}
 
         {/* Quick Add Popular Satellites */}
         {!showTleInput && (
@@ -426,8 +512,6 @@ MOLNIYA 1-91
           </div>
         )}
       </div>
-      
-      
     </div>
   );
 }

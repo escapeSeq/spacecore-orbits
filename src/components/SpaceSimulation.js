@@ -32,7 +32,7 @@ function LoadingScreen() {
   );
 }
 
-function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [], showManualSatellite = true, updateSatelliteCoverage, minElevationAngle = 0 }) {
+function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [], showManualSatellite = true, updateSatelliteCoverage, minElevationAngle = 0, showEarth = true, showEarthGrid = true }) {
   return (
     <Canvas
       camera={{ 
@@ -78,8 +78,8 @@ function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [],
           saturation={0} 
         />
         
-        {/* Earth */}
-        <Earth simulationSpeed={simulationSpeed} />
+        {/* Earth (always mounted). Visibility controlled via props */}
+        <Earth simulationSpeed={simulationSpeed} showGrid={showEarthGrid} showModel={showEarth} />
         
         {/* Manual Satellite */}
         {showManualSatellite && (
@@ -97,7 +97,6 @@ function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [],
             tleData={satellite.tleData}
             color={satellite.color}
             showOrbit={satellite.showOrbit}
-            showTrail={satellite.showTrail}
             showCoverage={satellite.showCoverage}
             onCoverageUpdate={(coverageData) => updateSatelliteCoverage?.(satellite.id, coverageData)}
             minElevationAngle={minElevationAngle}

@@ -79,6 +79,10 @@ function App() {
   const [globalCoveragePercent, setGlobalCoveragePercent] = useState(0);
   const [globalCoverageAreaKm2, setGlobalCoverageAreaKm2] = useState(0);
 
+  // Globe visibility and grid visibility
+  const [showEarth, setShowEarth] = useState(true);
+  const [showEarthGrid, setShowEarthGrid] = useState(true);
+
   // Precompute quasi-uniform samples on the unit sphere (Fibonacci lattice)
   const sphereSamples = useMemo(() => {
     const NUM_SAMPLES = 2048; // balance accuracy and speed
@@ -158,7 +162,10 @@ function App() {
         color: `hsl(${Math.random() * 360}, 70%, 50%)`, // Random color
         showOrbit: true,
         showTrail: true,
-        showCoverage: true
+        showCoverage: true,
+        rawName: name,
+        rawLine1: line1,
+        rawLine2: line2
       };
       setTleSatellites(prev => [...prev, newSatellite]);
       return true;
@@ -206,6 +213,8 @@ function App() {
           showManualSatellite={showManualSatellite}
           updateSatelliteCoverage={updateSatelliteCoverage}
           minElevationAngle={minElevationAngle}
+          showEarth={showEarth}
+          showEarthGrid={showEarthGrid}
         />
         <ControlPanel 
           simulationSpeed={simulationSpeed}
@@ -219,6 +228,10 @@ function App() {
           setMinElevationAngle={setMinElevationAngle}
           globalCoveragePercent={globalCoveragePercent}
           globalCoverageAreaKm2={globalCoverageAreaKm2}
+          showEarth={showEarth}
+          setShowEarth={setShowEarth}
+          showEarthGrid={showEarthGrid}
+          setShowEarthGrid={setShowEarthGrid}
         />
       </div>
     </ErrorBoundary>

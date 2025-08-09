@@ -6,17 +6,12 @@ import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleP
 function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showTrail = true, showCoverage = true, onCoverageUpdate, minElevationAngle = 0 }) {
   const satelliteRef = useRef();
   const orbitLineRef = useRef();
-  const trailRef = useRef();
   const coverageConeRef = useRef();
   const coverageRingRef = useRef();
   
   // Constants
   const EARTH_RADIUS = 2; // Earth radius in our 3D scene (represents 6371 km)
   
-  // Trail points for satellite path
-  const trailPoints = useRef([]);
-  const maxTrailLength = 100;
-
   // Calculate coverage cone parameters for line-of-sight to Earth's horizon or constrained by min elevation
   const calculateCoverageGeometry = (satellitePosition) => {
     // Use the same Earth radius as TLE parser for consistency
@@ -208,23 +203,6 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
           if (coverageRingRef.current) coverageRingRef.current.visible = false;
         }
       }
-      
-      // Update trail
-      if (showTrail) {
-        trailPoints.current.push(new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z));
-        if (trailPoints.current.length > maxTrailLength) {
-          trailPoints.current.shift();
-        }
-        
-        // Update trail geometry
-        if (trailRef.current && trailPoints.current.length > 1) {
-          const trailGeometry = new THREE.BufferGeometry().setFromPoints(trailPoints.current);
-          if (trailRef.current.geometry) {
-            trailRef.current.geometry.dispose();
-          }
-          trailRef.current.geometry = trailGeometry;
-        }
-      }
     }
   });
 
@@ -262,14 +240,6 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
             transparent 
             opacity={0.8}
           />
-        </line>
-      )}
-      
-      {/* Satellite trail */}
-      {showTrail && (
-        <line ref={trailRef}>
-          <bufferGeometry />
-          <lineBasicMaterial color={color} transparent opacity={0.4} />
         </line>
       )}
       

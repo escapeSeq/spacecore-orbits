@@ -5,7 +5,6 @@ import * as THREE from 'three';
 function Satellite({ simulationSpeed, satelliteParams }) {
   const satelliteRef = useRef();
   const orbitLineRef = useRef();
-  const trailRef = useRef();
   
   // Constants
   const EARTH_RADIUS = 2; // Earth radius in our 3D scene (represents 6371 km)
@@ -60,10 +59,6 @@ function Satellite({ simulationSpeed, satelliteParams }) {
     return new THREE.CatmullRomCurve3(points, true); // true for closed curve
   }, [orbitRadius, satelliteParams.inclination]);
   
-  // Trail points for satellite path
-  const trailPoints = useRef([]);
-  const maxTrailLength = 100;
-  
   // Animation loop
   useFrame((state, delta) => {
     if (satelliteRef.current) {
@@ -87,19 +82,6 @@ function Satellite({ simulationSpeed, satelliteParams }) {
       satelliteRef.current.lookAt(
         satelliteRef.current.position.clone().add(velocity.normalize())
       );
-      
-      // Update trail
-      trailPoints.current.push(new THREE.Vector3(x, y, z));
-      if (trailPoints.current.length > maxTrailLength) {
-        trailPoints.current.shift();
-      }
-      
-      // Update trail geometry
-      if (trailRef.current && trailPoints.current.length > 1) {
-        const trailGeometry = new THREE.BufferGeometry().setFromPoints(trailPoints.current);
-        trailRef.current.geometry.dispose();
-        trailRef.current.geometry = trailGeometry;
-      }
     }
   });
   
@@ -130,12 +112,6 @@ function Satellite({ simulationSpeed, satelliteParams }) {
           transparent={false} 
           opacity={1.0}
         />
-      </line>
-      
-      {/* Satellite trail */}
-      <line ref={trailRef}>
-        <bufferGeometry />
-        <lineBasicMaterial color="#00ff00" transparent opacity={0.6} />
       </line>
       
       {/* Satellite body */}
