@@ -181,63 +181,61 @@ function ControlPanel({
       <div className="control-group">
         
         {/* Global Visibility Controls */}
-        {tleSatellites.length > 0 && (
-          <div style={{ 
-            marginBottom: '10px', 
-            padding: '8px', 
-            background: 'rgba(0, 255, 0, 0.1)', 
-            borderRadius: '5px',
-            border: '1px solid rgba(0, 255, 0, 0.3)'
-          }}>
-            <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '5px', fontWeight: 'bold' }}>
-              🌐 Global Controls:
-            </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={tleSatellites.every(sat => sat.showOrbit)}
-                  onChange={(e) => toggleAllSatelliteVisibility('showOrbit', e.target.checked)}
-                  style={{ marginRight: '4px' }}
-                />
-                Orbits
-              </label>
-              <label style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={tleSatellites.every(sat => sat.showCoverage)}
-                  onChange={(e) => toggleAllSatelliteVisibility('showCoverage', e.target.checked)}
-                  style={{ marginRight: '4px' }}
-                />
-                Coverage
-              </label>
-              <label style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showEarth}
-                  onChange={(e) => setShowEarth(e.target.checked)}
-                  style={{ marginRight: '4px' }}
-                />
-                Globe
-              </label>
-              <label style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showEarthGrid}
-                  onChange={(e) => setShowEarthGrid(e.target.checked)}
-                  style={{ marginRight: '4px' }}
-                />
-                Grid
-              </label>
-            </div>
-            <div style={{ marginTop: '8px', fontSize: '10px', color: '#00ff00' }}>
-              <div style={{ fontWeight: 'bold' }}>Global Earth Coverage:</div>
-              <div style={{ color: '#ccc' }}>
-                {`${(globalCoveragePercent ?? 0).toFixed(2)}%`} ({((globalCoverageAreaKm2 ?? 0) / 1_000_000).toFixed(2)}M km²)
-              </div>
+        <div style={{ 
+          marginBottom: '10px', 
+          padding: '8px', 
+          background: 'rgba(0, 255, 0, 0.1)', 
+          borderRadius: '5px',
+          border: '1px solid rgba(0, 255, 0, 0.3)'
+        }}>
+          <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '5px', fontWeight: 'bold' }}>
+            🌐 Global Controls:
+          </div>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <label style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={tleSatellites.every(sat => sat.showOrbit)}
+                onChange={(e) => toggleAllSatelliteVisibility('showOrbit', e.target.checked)}
+                style={{ marginRight: '4px' }}
+              />
+              Orbits
+            </label>
+            <label style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={tleSatellites.every(sat => sat.showCoverage)}
+                onChange={(e) => toggleAllSatelliteVisibility('showCoverage', e.target.checked)}
+                style={{ marginRight: '4px' }}
+              />
+              Coverage
+            </label>
+            <label style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showEarth}
+                onChange={(e) => setShowEarth(e.target.checked)}
+                style={{ marginRight: '4px' }}
+              />
+              Globe
+            </label>
+            <label style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showEarthGrid}
+                onChange={(e) => setShowEarthGrid(e.target.checked)}
+                style={{ marginRight: '4px' }}
+              />
+              Grid
+            </label>
+          </div>
+          <div style={{ marginTop: '8px', fontSize: '10px', color: '#00ff00' }}>
+            <div style={{ fontWeight: 'bold' }}>Global Earth Coverage:</div>
+            <div style={{ color: '#ccc' }}>
+              {`${(globalCoveragePercent ?? 0).toFixed(2)}%`} ({((globalCoverageAreaKm2 ?? 0) / 1_000_000).toFixed(2)}M km²)
             </div>
           </div>
-        )}
+        </div>
 
         <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#00ff00' }}>
           TLE Satellites ({tleSatellites.length})
