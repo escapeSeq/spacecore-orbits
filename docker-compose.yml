@@ -1,0 +1,57 @@
+# Docker Compose configuration for SpaceCore Simulation
+
+services:
+  spacecore-simulation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spacecore-simulation
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.spacecore.rule=Host(`localhost`)"
+      - "traefik.http.services.spacecore.loadbalancer.server.port=80"
+    networks:
+      - spacecore-network
+
+  # Optional: Development service for live reloading
+  spacecore-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: spacecore-dev
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - FAST_REFRESH=true
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    profiles:
+      - dev
+    networks:
+      - spacecore-network
+
+networks:
+  spacecore-network:
+    driver: bridge
+
+volumes:
+  node_modules:
