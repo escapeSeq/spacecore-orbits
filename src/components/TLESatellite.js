@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleParser';
 
-function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showTrail = true, showCoverage = true }) {
+function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showTrail = true, showCoverage = true, onCoverageUpdate, minElevationAngle = 0 }) {
   const satelliteRef = useRef();
   const orbitLineRef = useRef();
   const trailRef = useRef();
@@ -16,9 +16,10 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
   const trailPoints = useRef([]);
   const maxTrailLength = 100;
 
-  // Calculate coverage cone parameters for line-of-sight to Earth's horizon
+  // Calculate coverage cone parameters for line-of-sight to Earth's horizon or constrained by min elevation
   const calculateCoverageGeometry = (satellitePosition) => {
-    const REAL_EARTH_RADIUS = 6371; // km
+    // Use the same Earth radius as TLE parser for consistency
+    const REAL_EARTH_RADIUS = 6378.137; // km (same as tleParser.js)
     const satDistance = Math.sqrt(
       satellitePosition.x * satellitePosition.x + 
       satellitePosition.y * satellitePosition.y + 
@@ -27,37 +28,53 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
     
     // Convert to real distance (satellite distance from Earth center)
     const realSatDistance = (satDistance / EARTH_RADIUS) * REAL_EARTH_RADIUS;
-    
-    // Calculate the angle from satellite to horizon (tangent to Earth's surface)
-    const horizonAngle = Math.asin(REAL_EARTH_RADIUS / realSatDistance);
-    
-    // Distance from satellite to the tangent point on Earth's surface
-    const tangentDistance = Math.sqrt(realSatDistance * realSatDistance - REAL_EARTH_RADIUS * REAL_EARTH_RADIUS);
-    
-    // Scale tangent distance back to scene coordinates
-    const scaledTangentDistance = (tangentDistance / REAL_EARTH_RADIUS) * EARTH_RADIUS;
-    
-    // Calculate the radius of the coverage circle on Earth's surface
-    // For a satellite, the coverage radius is determined by the central angle
-    // Coverage radius = Earth_radius * sin(central_angle)
-    // Central angle = arccos(Earth_radius / satellite_distance)
-    const centralAngle = Math.acos(REAL_EARTH_RADIUS / realSatDistance);
-    const coverageRadius = REAL_EARTH_RADIUS * Math.sin(centralAngle);
-    const scaledCoverageRadius = (coverageRadius / REAL_EARTH_RADIUS) * EARTH_RADIUS;
-    
-    // Calculate the actual cone height - distance from satellite to where cone intersects Earth
-    // This is different from tangent distance - it's the distance along the cone axis to Earth's surface
-    const sceneEarthRadius = EARTH_RADIUS;
-    const satelliteDistanceFromCenter = satDistance;
-    
-    // Distance from satellite to Earth surface along the line toward Earth center
-    const distanceToEarthSurface = satelliteDistanceFromCenter - sceneEarthRadius;
-    
+
+    // Validation: ensure satellite is above Earth's surface
+    if (realSatDistance <= REAL_EARTH_RADIUS) {
+      return { height: 0, radius: 0, angle: 0, coverageRadius: 0, coveragePercentage: 0, coverageAreaKm2: 0, centralAngle: 0, satelliteAltitudeKm: 0 };
+    }
+
+    // Geometry for minimum elevation angle constraint
+    const degToRad = Math.PI / 180;
+    const eRad = Math.max(0, Math.min(90, minElevationAngle)) * degToRad; // clamp 0..90 deg
+    const u = REAL_EARTH_RADIUS / realSatDistance; // R/d
+
+    // Central angle without elevation constraint (horizon)
+    const psi0 = Math.acos(Math.min(1, Math.max(-1, u)));
+
+    // Central angle with minimum elevation e: psi_e = arccos(u * cos e) - e
+    const acosArg = u * Math.cos(eRad);
+    const psi_e = Math.max(0, Math.acos(Math.min(1, Math.max(-1, acosArg))) - eRad);
+
+    // Plane containing the coverage circle is at distance p from Earth's center along the axis
+    const p = REAL_EARTH_RADIUS * Math.cos(psi_e);
+
+    // Distance from satellite to that plane along axis toward Earth's center
+    const coneHeightReal = Math.max(0, realSatDistance - p);
+
+    // Circle radius on that plane (equals circle on Earth's surface at central angle psi_e)
+    const coneBaseRadiusReal = REAL_EARTH_RADIUS * Math.sin(psi_e);
+
+    // Scale to scene coordinates
+    const coneHeight = (coneHeightReal / REAL_EARTH_RADIUS) * EARTH_RADIUS;
+    const coneBaseRadius = (coneBaseRadiusReal / REAL_EARTH_RADIUS) * EARTH_RADIUS;
+
+    // Coverage metrics based on spherical cap with central angle psi_e
+    const sphericalCapArea = 2 * Math.PI * REAL_EARTH_RADIUS * REAL_EARTH_RADIUS * (1 - Math.cos(psi_e));
+    const totalEarthArea = 4 * Math.PI * REAL_EARTH_RADIUS * REAL_EARTH_RADIUS;
+    const coveragePercentage = (sphericalCapArea / totalEarthArea) * 100;
+
+    const altitudeReal = realSatDistance - REAL_EARTH_RADIUS;
+
     return {
-      height: distanceToEarthSurface,   // Distance from satellite to Earth surface (where cone should end)
-      radius: scaledCoverageRadius,     // Radius of coverage circle on Earth's surface
-      angle: horizonAngle,              // Half-angle of the cone
-      tangentDistance: scaledTangentDistance // Keep for reference
+      height: coneHeight,
+      radius: coneBaseRadius,
+      angle: psi_e, // store central angle for reference
+      coverageRadius: (coneBaseRadiusReal / REAL_EARTH_RADIUS) * EARTH_RADIUS,
+      coveragePercentage,
+      coverageAreaKm2: sphericalCapArea,
+      centralAngle: psi_e,
+      satelliteAltitudeKm: altitudeReal
     };
   };
   
@@ -108,36 +125,60 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
       if (showCoverage && coverageConeRef.current) {
         const coverage = calculateCoverageGeometry(scenePos);
         
-        // Calculate direction from satellite to Earth center
-        const earthCenter = new THREE.Vector3(0, 0, 0);
-        const satellitePosition = new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z);
-        const directionToEarth = earthCenter.clone().sub(satellitePosition).normalize();
-        
-        // Create custom cone geometry with correct angle based on horizon
-        // The cone radius should be calculated from height and horizon angle
-        const coneRadius = coverage.height * Math.tan(coverage.angle);
-        const coneGeometry = new THREE.ConeGeometry(coneRadius, coverage.height, 16);
-        
-        // Position cone so tip is at satellite and cone extends toward Earth
-        // Three.js cone: tip at +Y, base at -Y, center at origin
-        // We want: tip at satellite, base at tangent points on Earth
-        // So we offset the cone center toward Earth by half the height
-        const coneOffset = directionToEarth.clone().multiplyScalar(coverage.height / 2);
-        const conePosition = satellitePosition.clone().add(coneOffset);
-        coverageConeRef.current.position.copy(conePosition);
-        
-        // Rotate cone so the +Y tip points back toward satellite
-        const defaultUp = new THREE.Vector3(0, 1, 0); // Default cone tip direction (+Y)
-        const quaternion = new THREE.Quaternion();
-        const tipDirection = directionToEarth.clone().negate(); // Point away from Earth (toward satellite)
-        quaternion.setFromUnitVectors(defaultUp, tipDirection);
-        coverageConeRef.current.setRotationFromQuaternion(quaternion);
-        
-        // Update geometry
-        if (coverageConeRef.current.geometry) {
-          coverageConeRef.current.geometry.dispose();
+        // Update coverage data for UI display
+        if (onCoverageUpdate && coverage.coveragePercentage !== undefined) {
+          // Direction from Earth center to satellite (unit vector in scene coords)
+          const satellitePosition = new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z);
+          const directionUnit = satellitePosition.length() > 0 ? satellitePosition.clone().normalize() : new THREE.Vector3(0,1,0);
+          onCoverageUpdate({ ...coverage, direction: { x: directionUnit.x, y: directionUnit.y, z: directionUnit.z } });
         }
-        coverageConeRef.current.geometry = coneGeometry;
+        
+        // Only show cone if there's meaningful coverage (satellite is above Earth)
+        if (coverage.height > 0.01) { // Minimum height threshold
+          // Calculate direction from satellite to Earth center
+          const earthCenter = new THREE.Vector3(0, 0, 0);
+          const satellitePosition = new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z);
+          const directionToEarth = earthCenter.clone().sub(satellitePosition).normalize();
+          
+          // Use the corrected cone geometry - radius is already calculated properly
+          const safeHeight = Math.max(coverage.height, 0.01);
+          const safeRadius = Math.max(coverage.radius, 0.01);
+          
+          const coneGeometry = new THREE.ConeGeometry(safeRadius, safeHeight, 16);
+          
+          // CORRECT APPROACH: Position cone so its tip is at satellite and edges are tangent to Earth
+          // Three.js cone: tip at +Y=height/2, base at -Y=-height/2, center at origin
+          // We want: tip at satellite position, cone edges tangent to Earth surface
+          
+          // Calculate where the cone center should be:
+          // If tip is at satellite, then cone center is (height/2) distance toward Earth from satellite
+          const coneCenter = satellitePosition.clone().add(
+            directionToEarth.clone().multiplyScalar(safeHeight / 2)
+          );
+          
+          // Position the cone
+          coverageConeRef.current.position.copy(coneCenter);
+          
+          // Rotate cone so tip (+Y) points back toward satellite
+          const defaultUp = new THREE.Vector3(0, 1, 0); // Default cone tip direction (+Y)
+          const quaternion = new THREE.Quaternion();
+          // Direction from cone center to satellite (where we want the tip to point)
+          const tipDirection = satellitePosition.clone().sub(coneCenter).normalize();
+          quaternion.setFromUnitVectors(defaultUp, tipDirection);
+          coverageConeRef.current.setRotationFromQuaternion(quaternion);
+          
+          // Update geometry
+          if (coverageConeRef.current.geometry) {
+            coverageConeRef.current.geometry.dispose();
+          }
+          coverageConeRef.current.geometry = coneGeometry;
+          
+          // Make sure the cone is visible
+          coverageConeRef.current.visible = true;
+        } else {
+          // Hide cone if satellite is too close to Earth
+          coverageConeRef.current.visible = false;
+        }
       }
       
       // Update trail

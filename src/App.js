@@ -148,23 +148,6 @@ function App() {
     setGlobalCoverageAreaKm2((percent / 100) * totalEarthAreaKm2);
   };
 
-  // Throttle recomputations to next animation frame and trigger on relevant changes
-  const recomputeScheduled = useRef(false);
-  const scheduleRecompute = () => {
-    if (recomputeScheduled.current) return;
-    recomputeScheduled.current = true;
-    requestAnimationFrame(() => {
-      recomputeScheduled.current = false;
-      recomputeGlobalCoverage();
-    });
-  };
-
-  // Trigger recompute when elevation angle changes
-  React.useEffect(() => {
-    scheduleRecompute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minElevationAngle, tleSatellites.length]);
-
   // Function to add TLE satellite
   const addTLESatellite = (name, line1, line2) => {
     try {
@@ -199,14 +182,17 @@ function App() {
       const next = { ...prev, [satelliteId]: coverageData };
       return next;
     });
-    scheduleRecompute();
+    // Recompute union coverage on each update
+    // Note: This is a simple approach; can be throttled if needed
+    setTimeout(recomputeGlobalCoverage, 0);
   };
 
   // Global visibility toggle functions
   const toggleAllSatelliteVisibility = (property, value) => {
     setTleSatellites(prev => prev.map(sat => ({ ...sat, [property]: value })));
+    // Recompute if coverage visibility changed
     if (property === 'showCoverage') {
-      scheduleRecompute();
+      setTimeout(recomputeGlobalCoverage, 0);
     }
   };
 

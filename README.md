@@ -1,4 +1,4 @@
-# SpaceCore Orbits
+# SpaceCore Simulation
 
 A React-based 3D Earth and satellite simulation using WebGL and Three.js. This application provides a realistic simulation of Earth's rotation and satellite orbital mechanics with adjustable parameters and time controls.
 
