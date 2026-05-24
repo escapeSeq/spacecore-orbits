@@ -135,7 +135,18 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
           // Direction from Earth center to satellite (unit vector in scene coords)
           const satellitePosition = new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z);
           const directionUnit = satellitePosition.length() > 0 ? satellitePosition.clone().normalize() : new THREE.Vector3(0,1,0);
-          onCoverageUpdate({ ...coverage, direction: { x: directionUnit.x, y: directionUnit.y, z: directionUnit.z } });
+
+          // Compute geographic lat/lon from scene position
+          const dist = satellitePosition.length();
+          const latitude = Math.asin(scenePos.y / dist) * (180 / Math.PI);
+          // Scene→ECI: x_eci=x_scene, y_eci=z_scene → ECI longitude = atan2(z_scene, x_scene)
+          const lonEci = Math.atan2(scenePos.z, scenePos.x) * (180 / Math.PI);
+          // GMST: convert ECI longitude to geographic longitude
+          const jd = simulationTime.getTime() / 86400000 + 2440587.5;
+          const gmstDeg = (280.46061837 + 360.98564736629 * (jd - 2451545.0)) % 360;
+          const longitude = ((lonEci - gmstDeg + 540) % 360) - 180;
+
+          onCoverageUpdate({ ...coverage, direction: { x: directionUnit.x, y: directionUnit.y, z: directionUnit.z }, latitude, longitude });
         }
         
         // Only show visuals if there's meaningful coverage (satellite is above Earth)

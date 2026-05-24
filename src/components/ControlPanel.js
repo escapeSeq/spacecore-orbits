@@ -7,6 +7,10 @@ function ControlPanel({
   tleSatellites = [],
   addTLESatellite,
   removeTLESatellite,
+  removeAllTleSatellites,
+  saveTle,
+  savedTles = [],
+  removeSavedTle,
   toggleAllSatelliteVisibility,
   satelliteCoverageData = {},
   minElevationAngle = 0,
@@ -110,7 +114,12 @@ function ControlPanel({
     }
   };
 
-  const handleLoadSampleTle = (sampleKey) => {
+  const handleLoadSampleTle = (sampleKey, savedEntry) => {
+    if (savedEntry) {
+      // Load from a saved TLE entry directly into the scene
+      addTLESatellite(savedEntry.rawName, savedEntry.rawLine1, savedEntry.rawLine2);
+      return;
+    }
     const sample = SAMPLE_TLES[sampleKey];
     const tleText = `${sample.name}\n${sample.line1}\n${sample.line2}`;
     setTleInput(tleText);
@@ -426,11 +435,70 @@ function ControlPanel({
           </div>
         )}
 
-        {/* Quick Add Popular Satellites */}
+        {/* Quick Add Satellites */}
         {!showTleInput && (
           <div style={{ marginBottom: '10px' }}>
+            {savedTles.length > 0 && (
+              <>
+                <div style={{ fontSize: '11px', color: '#ffcc00', marginBottom: '5px' }}>
+                  Saved:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginBottom: '10px' }}>
+                  {savedTles.map((saved, idx) => (
+                    <div key={idx} style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => handleLoadSampleTle(null, saved)}
+                        style={{
+                          background: '#444',
+                          color: '#ffcc00',
+                          border: '1px solid #665500',
+                          padding: '6px 8px',
+                          borderRadius: '3px',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          textAlign: 'center',
+                          transition: 'all 0.2s ease',
+                          width: '100%'
+                        }}
+                        onMouseOver={(e) => {
+                          e.target.style.background = '#555';
+                          e.target.style.borderColor = '#ffcc00';
+                        }}
+                        onMouseOut={(e) => {
+                          e.target.style.background = '#444';
+                          e.target.style.borderColor = '#665500';
+                        }}
+                      >
+                        {saved.rawName.length > 15 ? saved.rawName.substring(0, 12) + '...' : saved.rawName}
+                      </button>
+                      <button
+                        onClick={() => removeSavedTle(idx)}
+                        style={{
+                          position: 'absolute',
+                          top: '-4px',
+                          right: '-4px',
+                          background: '#552200',
+                          color: '#ff6644',
+                          border: '1px solid #773300',
+                          borderRadius: '50%',
+                          width: '14px',
+                          height: '14px',
+                          padding: 0,
+                          cursor: 'pointer',
+                          fontSize: '8px',
+                          lineHeight: '12px',
+                          textAlign: 'center'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '5px' }}>
-              Quick Add Popular Satellites:
+              Popular:
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
               {Object.entries(SAMPLE_TLES).map(([key, tle]) => (
@@ -552,6 +620,23 @@ MOLNIYA 1-91
         {/* List of added TLE satellites */}
         {tleSatellites.length > 0 && (
           <div style={{ marginTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', color: '#aaa' }}>{tleSatellites.length} satellite{tleSatellites.length !== 1 ? 's' : ''}</span>
+              <button
+                onClick={removeAllTleSatellites}
+                style={{
+                  background: '#aa2222',
+                  color: 'white',
+                  border: 'none',
+                  padding: '3px 8px',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '10px'
+                }}
+              >
+                Remove All
+              </button>
+            </div>
             {tleSatellites.map(satellite => (
               <div
                 key={satellite.id}
@@ -572,20 +657,37 @@ MOLNIYA 1-91
                   <span style={{ color: satellite.color, fontWeight: 'bold' }}>
                     {satellite.tleData.name}
                   </span>
-                  <button
-                    onClick={() => removeTLESatellite(satellite.id)}
-                    style={{
-                      background: '#ff4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '2px 6px',
-                      borderRadius: '2px',
-                      cursor: 'pointer',
-                      fontSize: '10px'
-                    }}
-                  >
-                    ✕
-                  </button>
+                  <div style={{ display: 'flex', gap: '3px' }}>
+                    <button
+                      onClick={() => saveTle(satellite)}
+                      title="Save to favorites"
+                      style={{
+                        background: '#335500',
+                        color: '#88ff44',
+                        border: 'none',
+                        padding: '2px 6px',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: '10px'
+                      }}
+                    >
+                      ☆
+                    </button>
+                    <button
+                      onClick={() => removeTLESatellite(satellite.id)}
+                      style={{
+                        background: '#ff4444',
+                        color: 'white',
+                        border: 'none',
+                        padding: '2px 6px',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: '10px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
                 
                 
@@ -596,6 +698,14 @@ MOLNIYA 1-91
                   Period: {satellite.tleData.period.toFixed(1)}min
                 </div>
                 
+                {/* Current Position */}
+                {satelliteCoverageData[satellite.id] && satelliteCoverageData[satellite.id].latitude !== undefined && (
+                  <div style={{ marginTop: '3px', fontSize: '10px', color: '#88ccff' }}>
+                    Pos: {satelliteCoverageData[satellite.id].latitude.toFixed(1)}° {satelliteCoverageData[satellite.id].latitude >= 0 ? 'N' : 'S'}, {Math.abs(satelliteCoverageData[satellite.id].longitude).toFixed(1)}° {satelliteCoverageData[satellite.id].longitude >= 0 ? 'E' : 'W'} | 
+                    Alt: {satelliteCoverageData[satellite.id].satelliteAltitudeKm?.toFixed(0)}km
+                  </div>
+                )}
+
                 {/* Coverage Information */}
                 {satelliteCoverageData[satellite.id] && (
                   <div style={{ 

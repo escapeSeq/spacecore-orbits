@@ -1,4 +1,4 @@
-import React, { useState, Component, useMemo, useRef } from 'react';
+import React, { useState, useEffect, Component, useMemo, useRef } from 'react';
 import './App.css';
 import SpaceSimulation from './components/SpaceSimulation';
 import ControlPanel from './components/ControlPanel';
@@ -65,8 +65,19 @@ function App() {
     speed: 7.66, // km/s (orbital velocity)
   });
 
-  // State for TLE satellites
+  // State for TLE satellites (not auto-persisted)
   const [tleSatellites, setTleSatellites] = useState([]);
+
+  // User-saved TLEs in localStorage (shown as quick-add buttons)
+  const [savedTles, setSavedTles] = useState(() => {
+    try {
+      const stored = localStorage.getItem('spacecore_saved_tles');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.warn('Failed to load saved TLEs:', e);
+    }
+    return [];
+  });
   const [showManualSatellite, setShowManualSatellite] = useState(false);
   
   // State for satellite coverage data
@@ -130,7 +141,11 @@ function App() {
     return grid;
   };
 
-  // Recompute global union coverage using deterministic grid
+  // Recompute global union coverage whenever satellites or coverage data change
+  useEffect(() => {
+    recomputeGlobalCoverage();
+  }, [tleSatellites, satelliteCoverageData]);
+
   const recomputeGlobalCoverage = () => {
     const active = tleSatellites.filter(s => s.showCoverage);
     const activeSatIds = active.map(s => s.id);
@@ -233,7 +248,10 @@ function App() {
         rawLine1: line1,
         rawLine2: line2
       };
-      setTleSatellites(prev => [...prev, newSatellite]);
+      setTleSatellites(prev => {
+        if (prev.some(s => s.rawLine1 === line1)) return prev;
+        return [...prev, newSatellite];
+      });
       return true;
     } catch (error) {
       console.error('Error adding TLE satellite:', error);
@@ -242,11 +260,43 @@ function App() {
     }
   };
 
+  // Save a TLE to localStorage (user-triggered)
+  const saveTle = (satellite) => {
+    if (!satellite || !satellite.rawLine1) {
+      console.warn('saveTle: satellite missing rawLine1', satellite);
+      return;
+    }
+    const entry = { rawName: satellite.rawName, rawLine1: satellite.rawLine1, rawLine2: satellite.rawLine2 };
+    setSavedTles(prev => {
+      if (prev.some(s => s.rawLine1 === entry.rawLine1)) {
+        console.log('saveTle: already saved', entry.rawName);
+        return prev;
+      }
+      const updated = [...prev, entry];
+      localStorage.setItem('spacecore_saved_tles', JSON.stringify(updated));
+      console.log('saveTle: saved', entry.rawName, 'total:', updated.length);
+      return updated;
+    });
+  };
+
+  // Remove a saved TLE from localStorage
+  const removeSavedTle = (index) => {
+    setSavedTles(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      localStorage.setItem('spacecore_saved_tles', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Function to remove TLE satellite
   const removeTLESatellite = (id) => {
     setTleSatellites(prev => prev.filter(sat => sat.id !== id));
-    // Trigger recompute after removal in next tick
-    setTimeout(recomputeGlobalCoverage, 0);
+  };
+
+  // Function to remove all TLE satellites
+  const removeAllTleSatellites = () => {
+    setTleSatellites([]);
+    setSatelliteCoverageData({});
   };
 
   // Function to update satellite coverage data
@@ -255,16 +305,11 @@ function App() {
       const next = { ...prev, [satelliteId]: coverageData };
       return next;
     });
-    // Recompute union coverage on each update
-    setTimeout(recomputeGlobalCoverage, 0);
   };
 
   // Global visibility toggle functions
   const toggleAllSatelliteVisibility = (property, value) => {
     setTleSatellites(prev => prev.map(sat => ({ ...sat, [property]: value })));
-    if (property === 'showCoverage') {
-      setTimeout(recomputeGlobalCoverage, 0);
-    }
   };
 
   return (
@@ -291,6 +336,10 @@ function App() {
           tleSatellites={tleSatellites}
           addTLESatellite={addTLESatellite}
           removeTLESatellite={removeTLESatellite}
+          removeAllTleSatellites={removeAllTleSatellites}
+          saveTle={saveTle}
+          savedTles={savedTles}
+          removeSavedTle={removeSavedTle}
           toggleAllSatelliteVisibility={toggleAllSatelliteVisibility}
           satelliteCoverageData={satelliteCoverageData}
           minElevationAngle={minElevationAngle}
