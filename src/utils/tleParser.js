@@ -96,14 +96,33 @@ export function calculateSatellitePosition(tle, date = new Date()) {
   const M0 = tle.meanAnomaly * DEG_TO_RAD;
 
   // Mean motion (radians per minute)
-  const n = tle.meanMotion * 2 * Math.PI / (24 * 60);
+  const n0 = tle.meanMotion * 2 * Math.PI / (24 * 60);
 
-  // Account for secular perturbations (simplified)
-  const dragEffect = tle.meanMotionDerivative * timeSinceEpoch / (24 * 60);
-  const currentN = n + dragEffect;
+  // Semi-latus rectum and related
+  const a = tle.semiMajorAxis;
+  const e = tle.eccentricity;
+  const p_param = a * (1 - e * e);
 
-  // Current mean anomaly
-  const M = M0 + currentN * timeSinceEpoch;
+  // J2 secular perturbation rates (radians per minute)
+  const cosInc = Math.cos(inc);
+  const sinInc = Math.sin(inc);
+  const j2Factor = (3 / 2) * J2 * Math.pow(EARTH_RADIUS / p_param, 2);
+
+  // RAAN precession: Ω̇ = -(3/2) * J2 * (R_E/p)^2 * n * cos(i)
+  const raanDot = -j2Factor * n0 * cosInc;
+
+  // Argument of perigee drift: ω̇ = (3/2) * J2 * (R_E/p)^2 * n * (2 - (5/2) sin²i)
+  const argpDot = j2Factor * n0 * (2 - 2.5 * sinInc * sinInc);
+
+  // Mean motion secular correction: ṅ_J2 = (3/2) * J2 * (R_E/p)^2 * n * (1 - (3/2) sin²i) * sqrt(1-e²)
+  const nJ2 = j2Factor * n0 * (1 - 1.5 * sinInc * sinInc) * Math.sqrt(1 - e * e);
+  const nCorrected = n0 + nJ2;
+
+  // Drag correction (mean motion derivative is ṅ/2 in rev/day², convert to rad/min²)
+  const ndot2 = tle.meanMotionDerivative * 2 * Math.PI / (24 * 60) / (24 * 60); // rad/min²
+
+  // Current mean anomaly: M = M0 + n·t + (ṅ/2)·t²
+  const M = M0 + nCorrected * timeSinceEpoch + ndot2 * timeSinceEpoch * timeSinceEpoch;
 
   // Solve Kepler's equation for eccentric anomaly (Newton-Raphson)
   let E = M;
@@ -131,13 +150,19 @@ export function calculateSatellitePosition(tle, date = new Date()) {
   const vx_orb = -Math.sqrt(MU / p) * Math.sin(nu);
   const vy_orb = Math.sqrt(MU / p) * (tle.eccentricity + Math.cos(nu));
 
+  // Apply J2 secular perturbations to RAAN and argument of perigee
+  // TLEs are only accurate for ~14 days; cap J2 drift to avoid unrealistic orientation from stale TLEs
+  const MAX_J2_PROPAGATION_MIN = 14 * 24 * 60; // 14 days in minutes
+  const j2Time = Math.max(-MAX_J2_PROPAGATION_MIN, Math.min(MAX_J2_PROPAGATION_MIN, timeSinceEpoch));
+  const currentRaan = raan + raanDot * j2Time;
+  const currentArgp = argp + argpDot * j2Time;
+
   // Rotation matrices for orbital plane to ECI
-  const cosRaan = Math.cos(raan);
-  const sinRaan = Math.sin(raan);
-  const cosArgp = Math.cos(argp);
-  const sinArgp = Math.sin(argp);
-  const cosInc = Math.cos(inc);
-  const sinInc = Math.sin(inc);
+  const cosRaan = Math.cos(currentRaan);
+  const sinRaan = Math.sin(currentRaan);
+  const cosArgp = Math.cos(currentArgp);
+  const sinArgp = Math.sin(currentArgp);
+  // cosInc, sinInc already computed above
 
   // Transform to ECI coordinates
   const x = (cosRaan * cosArgp - sinRaan * sinArgp * cosInc) * x_orb +
@@ -177,7 +202,7 @@ export function eciToSceneCoordinates(eciPosition, earthRadius = 2) {
   return {
     x: eciPosition.x * scale,
     y: eciPosition.z * scale, // Z becomes Y (up)
-    z: -eciPosition.y * scale // Y becomes -Z (Three.js coordinate system)
+    z: eciPosition.y * scale  // Y becomes +Z (preserves orbit direction)
   };
 }
 
@@ -209,8 +234,8 @@ export function validateTLEChecksum(tleLine) {
 export const SAMPLE_TLES = {
   ISS: {
     name: "🚀 ISS (ZARYA)",
-    line1: "1 25544U 98067A   24001.00000000  .00020137  00000-0  16538-3 0  9993",
-    line2: "2 25544  51.6461 339.2377 0001078  88.2548 271.9142 15.48919103123456"
+    line1: "1 25544U 98067A   26144.19669721  .00007438  00000+0  14130-3 0  9991",
+    line2: "2 25544  51.6327  58.8652 0007496  92.3340 267.8507 15.49341091568031"
   },
   HUBBLE: {
     name: "🔭 Hubble Space Telescope",

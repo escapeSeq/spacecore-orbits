@@ -118,7 +118,9 @@ function Earth({ simulationSpeed, showGrid = true, showModel = true }) {
 
       {/* Earth model (1% smaller) */}
       {showModel && earthModel && (
-        <primitive object={earthModel} />
+        <group rotation={[0, Math.PI / 2, 0]}>
+          <primitive object={earthModel} />
+        </group>
       )}
 
       {/* Grid lines, fixed to exact Earth radius */}
