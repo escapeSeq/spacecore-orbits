@@ -98,6 +98,7 @@ function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [],
             color={satellite.color}
             showOrbit={satellite.showOrbit}
             showCoverage={satellite.showCoverage}
+            showBeam={satellite.showBeam !== false}
             onCoverageUpdate={(coverageData) => updateSatelliteCoverage?.(satellite.id, coverageData)}
             minElevationAngle={minElevationAngle}
           />

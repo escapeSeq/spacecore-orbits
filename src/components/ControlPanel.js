@@ -276,6 +276,15 @@ function ControlPanel({
             <label style={{ cursor: 'pointer' }}>
               <input
                 type="checkbox"
+                checked={tleSatellites.every(sat => sat.showBeam !== false)}
+                onChange={(e) => toggleAllSatelliteVisibility('showBeam', e.target.checked)}
+                style={{ marginRight: '4px' }}
+              />
+              Beams
+            </label>
+            <label style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
                 checked={showEarth}
                 onChange={(e) => setShowEarth(e.target.checked)}
                 style={{ marginRight: '4px' }}
@@ -351,11 +360,11 @@ function ControlPanel({
             {showVisibleTle ? 'Hide Visible TLE' : 'Show Visible TLE'}
           </button>
 
-          {/* Minimal constellation button when exactly one satellite is visible */}
+          {/* Minimal constellation button when at least one satellite is present */}
           {(() => {
-            const visible = tleSatellites.filter(s => s.showCoverage && s.rawLine1 && s.rawLine2);
-            if (visible.length !== 1) return null;
-            const sat = visible[0];
+            const eligible = tleSatellites.filter(s => s.rawLine1 && s.rawLine2);
+            if (eligible.length < 1) return null;
+            const sat = eligible[0];
             const cov = satelliteCoverageData[sat.id];
             const psi = cov?.centralAngle;
             const N = computeMinimalCount(psi);

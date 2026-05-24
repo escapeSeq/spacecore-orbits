@@ -249,7 +249,7 @@ function App() {
         rawLine2: line2
       };
       setTleSatellites(prev => {
-        if (prev.some(s => s.rawLine1 === line1)) return prev;
+        if (prev.some(s => s.rawLine1 === line1 && s.rawLine2 === line2)) return prev;
         return [...prev, newSatellite];
       });
       return true;

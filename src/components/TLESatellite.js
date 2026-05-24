@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleParser';
 
-function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, onCoverageUpdate, minElevationAngle = 0 }) {
+function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, showBeam = true, onCoverageUpdate, minElevationAngle = 0 }) {
   const satelliteRef = useRef();
   const orbitMeshRef = useRef();
   const coverageConeRef = useRef();
@@ -180,7 +180,7 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
             coverageConeRef.current.geometry.dispose();
           }
           coverageConeRef.current.geometry = coneGeometry;
-          coverageConeRef.current.visible = true;
+          coverageConeRef.current.visible = showBeam;
 
           // Update intersection ring on Earth's surface
           if (coverageRingRef.current) {
