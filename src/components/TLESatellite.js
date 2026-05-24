@@ -1,13 +1,14 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleParser';
 
 function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, onCoverageUpdate, minElevationAngle = 0 }) {
   const satelliteRef = useRef();
-  const orbitLineRef = useRef();
+  const orbitMeshRef = useRef();
   const coverageConeRef = useRef();
   const coverageRingRef = useRef();
+  const lastOrbitUpdateRef = useRef(-Infinity);
   
   // Constants
   const EARTH_RADIUS = 2; // Earth radius in our 3D scene (represents 6371 km)
@@ -77,34 +78,39 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
     };
   };
 
-  // Calculate orbit path for visualization
-  const orbitCurve = useMemo(() => {
-    if (!tleData) return null;
-    
-    const points = [];
-    const segments = 256;
-    const currentTime = new Date();
-    
-    // Generate orbit points over one complete period
-    const periodMinutes = tleData.period;
-    const timeStep = periodMinutes / segments;
-    
-    for (let i = 0; i <= segments; i++) {
-      const time = new Date(currentTime.getTime() + i * timeStep * 60 * 1000);
-      const satPos = calculateSatellitePosition(tleData, time);
-      const scenePos = eciToSceneCoordinates(satPos.position, EARTH_RADIUS);
-      points.push(new THREE.Vector3(scenePos.x, scenePos.y, scenePos.z));
-    }
-    
-    return new THREE.CatmullRomCurve3(points, true);
-  }, [tleData]);
-
   // Animation loop
   useFrame((state, delta) => {
     if (satelliteRef.current && tleData) {
       // Calculate current satellite position based on simulation time
       const baseTime = new Date();
       const simulationTime = new Date(baseTime.getTime() + state.clock.elapsedTime * simulationSpeed * 1000);
+
+      // Dynamically update orbit path (single period, tube, includes J2 precession)
+      if (showOrbit && orbitMeshRef.current) {
+        const elapsedReal = state.clock.elapsedTime;
+        if (elapsedReal - lastOrbitUpdateRef.current > 2.0) { // update every 2s real time
+          lastOrbitUpdateRef.current = elapsedReal;
+
+          const segments = 256;
+          const periodMinutes = tleData.period;
+          const timeStep = periodMinutes / segments;
+
+          const points = [];
+          for (let i = 0; i <= segments; i++) {
+            const t = new Date(simulationTime.getTime() + i * timeStep * 60 * 1000);
+            const pos = calculateSatellitePosition(tleData, t);
+            const scene = eciToSceneCoordinates(pos.position, EARTH_RADIUS);
+            points.push(new THREE.Vector3(scene.x, scene.y, scene.z));
+          }
+
+          const curve = new THREE.CatmullRomCurve3(points, true);
+          const tubeGeom = new THREE.TubeGeometry(curve, 128, 0.008, 8, true);
+          if (orbitMeshRef.current.geometry) {
+            orbitMeshRef.current.geometry.dispose();
+          }
+          orbitMeshRef.current.geometry = tubeGeom;
+        }
+      }
       
       const satPos = calculateSatellitePosition(tleData, simulationTime);
       const scenePos = eciToSceneCoordinates(satPos.position, EARTH_RADIUS);
@@ -215,35 +221,16 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
 
   return (
     <group>
-      {/* Visible orbit path using tube geometry */}
-      {showOrbit && orbitCurve && (
-        <mesh>
-          <tubeGeometry args={[orbitCurve, 128, 0.008, 8, true]} />
+      {/* Orbit path (single period tube, dynamically updated for J2 precession) */}
+      {showOrbit && (
+        <mesh ref={orbitMeshRef}>
+          <bufferGeometry />
           <meshBasicMaterial 
             color={color} 
             transparent 
             opacity={0.6}
           />
         </mesh>
-      )}
-
-      {/* Backup line for orbit */}
-      {showOrbit && orbitCurve && (
-        <line ref={orbitLineRef}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={orbitCurve.getPoints(256).length}
-              array={new Float32Array(orbitCurve.getPoints(256).flatMap(p => [p.x, p.y, p.z]))}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial 
-            color={color} 
-            transparent 
-            opacity={0.8}
-          />
-        </line>
       )}
       
       {/* Coverage cone */}
