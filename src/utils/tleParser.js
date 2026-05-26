@@ -202,7 +202,7 @@ export function eciToSceneCoordinates(eciPosition, earthRadius = 2) {
   return {
     x: eciPosition.x * scale,
     y: eciPosition.z * scale, // Z becomes Y (up)
-    z: eciPosition.y * scale  // Y becomes +Z (preserves orbit direction)
+    z: -eciPosition.y * scale  // Negate Y→Z to preserve right-handedness and orbit direction
   };
 }
 
