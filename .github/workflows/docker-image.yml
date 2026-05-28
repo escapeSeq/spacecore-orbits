@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repository code so the workflow can access it
+      # 1. Checkout the repository code so the workflow can access i
       - name: Checkout code
         uses: actions/checkout@v4
 
