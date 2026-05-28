@@ -1,5 +1,6 @@
 name: Docker Image CI
 
+# Trigger the workflow on pushes or pull requests to the 'main' branch
 on:
   push:
     branches: [ "main" ]
@@ -11,31 +12,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # 1. Checkout the repository code so the workflow can access it
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      # 2. Set up Docker Buildx for advanced build features (multi-platform, caching)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Lowercase owner name
-      id: lowercase
-      run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      # 3. CRITICAL FIX: Convert repository owner to lowercase
+      # Docker/GHCR requires repository names to be strictly lowercase.
+      # GitHub's ${{ github.repository_owner }} preserves original casing (e.g., "EscapeSeq").
+      # We use bash string manipulation (${VAR,,}) to force lowercase.
+      - name: Lowercase owner name
+        id: lowercase
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
-    - name: Log in to GHCR
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.DOCKER_CI_PAT }}
+      # 4. Authenticate with GitHub Container Registry (GHCR)
+      # Uses the PAT stored in 'DOCKER_CI_PAT' secret for write access.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}       # Automatically uses the current user/org name
+          password: ${{ secrets.DOCKER_CI_PAT }} # Securely retrieves the PAT from repo secrets
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: true
-        tags: |
-          ghcr.io/${{ steps.lowercase.outputs.owner }}/spacecore-orbits:${{ github.sha }}
-          ghcr.io/${{ steps.lowercase.outputs.owner }}/spacecore-orbits:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      # 5. Build and push the Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .              # Build context is the current directory
+          file: ./Dockerfile      # Explicitly point to the Dockerfile
+          push: true              # Push the image to the registry after building
+          
+          # Tag the image with two versions:
+          # 1. Unique tag using the commit SHA (immutable, good for tracking specific builds)
+          # 2. 'latest' tag (mutable, points to the most recent successful build)
+          tags: |
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/spacecore-orbits:${{ github.sha }}
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/spacecore-orbits:latest
+          
+          # Enable GitHub Actions cache to speed up subsequent builds
+          # 'cache-from' loads cached layers, 'cache-to' saves new layers
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
