@@ -10,6 +10,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    permissions: 
+      -  packages: write-all
 
     steps:
       # 1. Checkout the repository code so the workflow can access it
@@ -35,7 +37,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}       # Automatically uses the current user/org name
-          password: ${{ secrets.DOCKER_CI_PAT }} # Securely retrieves the PAT from repo secrets
+          password: ${{ secrets.GITHUB_TOKEN }} # No PAT
 
       # 5. Build and push the Docker image
       - name: Build and push Docker image
