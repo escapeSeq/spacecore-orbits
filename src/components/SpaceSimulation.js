@@ -1,60 +1,86 @@
-import React, { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import React, { useRef, Suspense, useLayoutEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import ThemeStars from './ThemeStars';
 import Earth from './Earth';
 import Satellite from './Satellite';
 import TLESatellite from './TLESatellite';
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
 
-// Loading component - Three.js compatible
-function LoadingScreen() {
+function SkyBackground({ color }) {
+  const { scene, gl } = useThree();
+
+  useLayoutEffect(() => {
+    const sky = new THREE.Color(color);
+    scene.background = sky;
+    gl.setClearColor(sky, 1);
+  }, [color, scene, gl]);
+
+  return null;
+}
+
+function LoadingScreen({ theme }) {
   const loadingRef = useRef();
-  
+
   useFrame((state, delta) => {
     if (loadingRef.current) {
       loadingRef.current.rotation.y += delta * 2;
       loadingRef.current.rotation.x += delta * 0.5;
     }
   });
-  
+
   return (
     <group ref={loadingRef}>
-      {/* Simple loading indicator using Three.js objects */}
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[0.5, 16, 16]} />
-        <meshBasicMaterial color="#00ff00" wireframe />
+        <meshBasicMaterial color={theme.loadingWireframe} wireframe />
       </mesh>
       <mesh position={[0, 0, 0]} rotation={[0, 0, 0]}>
         <torusGeometry args={[0.8, 0.1, 8, 16]} />
-        <meshBasicMaterial color="#ffffff" wireframe />
+        <meshBasicMaterial color={theme.loadingTorus} wireframe />
       </mesh>
     </group>
   );
 }
 
-function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [], showManualSatellite = true, updateSatelliteCoverage, minElevationAngle = 0, showEarth = true, showEarthGrid = true }) {
+function SpaceSimulation({
+  simulationSpeed,
+  satelliteParams,
+  tleSatellites = [],
+  showManualSatellite = true,
+  updateSatelliteCoverage,
+  minElevationAngle = 0,
+  showEarth = true,
+  showEarthGrid = true,
+  theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME],
+}) {
   return (
     <Canvas
-      camera={{ 
-        position: [0, 0, 8], 
+      camera={{
+        position: [0, 0, 8],
         fov: 75,
         near: 0.1,
-        far: 1000
+        far: 1000,
       }}
-      style={{ background: '#000' }}
-      gl={{ 
+      style={{ background: theme.canvas }}
+      gl={{
         antialias: true,
-        alpha: false
+        alpha: false,
       }}
     >
-      <Suspense fallback={<LoadingScreen />}>
-        {/* Ambient light for general illumination */}
-        <ambientLight intensity={0.1} />
-        
-        {/* Directional light representing the Sun */}
-        <directionalLight 
-          position={[10, 5, 5]} 
-          intensity={2}
+      <SkyBackground color={theme.canvas} />
+
+      {theme.showStars && (
+        <ThemeStars key={theme.id} variant={theme.id} />
+      )}
+
+      <Suspense fallback={<LoadingScreen theme={theme} />}>
+        <ambientLight intensity={theme.ambientLight} />
+
+        <directionalLight
+          position={[10, 5, 5]}
+          intensity={theme.directionalLight}
           castShadow
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
@@ -65,31 +91,23 @@ function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [],
           shadow-camera-top={20}
           shadow-camera-bottom={-20}
         />
-        
-        {/* Point light for additional lighting */}
-        <pointLight position={[10, 10, 10]} intensity={0.5} />
-        
-        {/* Stars background */}
-        <Stars 
-          radius={100} 
-          depth={50} 
-          count={1000} 
-          factor={4} 
-          saturation={0} 
+
+        <pointLight position={[10, 10, 10]} intensity={theme.pointLight} />
+
+        <Earth
+          simulationSpeed={simulationSpeed}
+          showGrid={showEarthGrid}
+          showModel={showEarth}
+          theme={theme}
         />
-        
-        {/* Earth (always mounted). Visibility controlled via props */}
-        <Earth simulationSpeed={simulationSpeed} showGrid={showEarthGrid} showModel={showEarth} />
-        
-        {/* Manual Satellite */}
+
         {showManualSatellite && (
-          <Satellite 
+          <Satellite
             simulationSpeed={simulationSpeed}
             satelliteParams={satelliteParams}
           />
         )}
-        
-        {/* TLE Satellites */}
+
         {tleSatellites.map(satellite => (
           <TLESatellite
             key={satellite.id}
@@ -101,11 +119,11 @@ function SpaceSimulation({ simulationSpeed, satelliteParams, tleSatellites = [],
             showBeam={satellite.showBeam !== false}
             onCoverageUpdate={(coverageData) => updateSatelliteCoverage?.(satellite.id, coverageData)}
             minElevationAngle={minElevationAngle}
+            theme={theme}
           />
         ))}
-        
-        {/* Camera controls */}
-        <OrbitControls 
+
+        <OrbitControls
           enablePan={true}
           enableZoom={true}
           enableRotate={true}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SAMPLE_TLES } from '../utils/tleParser';
+import { COLOR_SCHEMES } from '../themes/colorSchemes';
 
 function ControlPanel({ 
   simulationSpeed, 
@@ -20,7 +21,9 @@ function ControlPanel({
   showEarth,
   setShowEarth,
   showEarthGrid,
-  setShowEarthGrid
+  setShowEarthGrid,
+  colorScheme = 'dark',
+  setColorScheme,
 }) {
   // TLE input state
   const [tleInput, setTleInput] = useState('');
@@ -181,10 +184,22 @@ function ControlPanel({
   
   return (
     <div className="control-panel">
-      <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#00ff00' }}>
+      <div className="theme-toggle">
+        {Object.values(COLOR_SCHEMES).map((scheme) => (
+          <button
+            key={scheme.id}
+            type="button"
+            className={colorScheme === scheme.id ? 'active' : ''}
+            onClick={() => setColorScheme(scheme.id)}
+          >
+            {scheme.label}
+          </button>
+        ))}
+      </div>
+      <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: 'var(--accent)' }}>
         🛰️ Spacecore Orbits
       </h2>
-      <div style={{ margin: '0 0 20px 0', fontSize: '12px', color: '#ccc' }}>
+      <div style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
         {simTimeStr}
       </div>
       
@@ -199,7 +214,7 @@ function ControlPanel({
           value={simulationSpeed}
           onChange={handleSpeedChange}
           style={{
-            background: 'linear-gradient(to right, #333, #00ff00)',
+            background: 'linear-gradient(to right, var(--speed-gradient-start), var(--speed-gradient-end))',
             height: '8px',
             borderRadius: '4px',
             outline: 'none',
@@ -225,7 +240,7 @@ function ControlPanel({
           value={minElevationAngle}
           onChange={(e) => setMinElevationAngle(parseFloat(e.target.value))}
           style={{
-            background: 'linear-gradient(to right, #333, #ff8800)',
+            background: 'linear-gradient(to right, var(--speed-gradient-start), var(--elevation-gradient-end))',
             height: '8px',
             borderRadius: '4px',
             outline: 'none',
@@ -235,7 +250,7 @@ function ControlPanel({
         <div className="speed-display">
           {minElevationAngle}° {minElevationAngle === 0 ? '(Maximum Coverage)' : '(Reduced Coverage)'}
         </div>
-        <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>
+        <div style={{ fontSize: '10px', color: 'var(--text-subtle)', marginTop: '2px' }}>
           Ground antenna elevation angle. 0° = horizontal (max coverage), 90° = vertical (min coverage)
         </div>
       </div>
@@ -247,11 +262,11 @@ function ControlPanel({
         <div style={{ 
           marginBottom: '10px', 
           padding: '8px', 
-          background: 'rgba(0, 255, 0, 0.1)', 
+          background: 'var(--accent-soft-bg)', 
           borderRadius: '5px',
-          border: '1px solid rgba(0, 255, 0, 0.3)'
+          border: '1px solid var(--accent-soft-border)'
         }}>
-          <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '5px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '11px', color: 'var(--accent)', marginBottom: '5px', fontWeight: 'bold' }}>
             🌐 Global Controls:
           </div>
           <div style={{ display: 'flex', gap: '12px', fontSize: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -301,15 +316,15 @@ function ControlPanel({
               Grid
             </label>
           </div>
-          <div style={{ marginTop: '8px', fontSize: '10px', color: '#00ff00' }}>
+          <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--accent)' }}>
             <div style={{ fontWeight: 'bold' }}>Global Earth Coverage:</div>
-            <div style={{ color: '#ccc' }}>
+            <div style={{ color: 'var(--text-muted)' }}>
               {`${(globalCoveragePercent ?? 0).toFixed(2)}%`} ({((globalCoverageAreaKm2 ?? 0) / 1_000_000).toFixed(2)}M km²)
             </div>
           </div>
         </div>
 
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#00ff00' }}>
+        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: 'var(--accent)' }}>
           TLE Satellites ({tleSatellites.length})
         </h3>
         
@@ -318,9 +333,9 @@ function ControlPanel({
           <button
             onClick={() => setShowTleInput(!showTleInput)}
             style={{
-              background: showTleInput ? '#ff4444' : '#00aa00',
-              color: 'white',
-              border: showTleInput ? '1px solid #ff4444' : '1px solid #00ff00',
+              background: showTleInput ? 'var(--btn-danger-bg)' : 'var(--accent-dim)',
+              color: 'var(--accent-on)',
+              border: showTleInput ? '1px solid var(--btn-danger-bg)' : '1px solid var(--accent)',
               padding: '6px 10px',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -346,9 +361,9 @@ function ControlPanel({
           <button
             onClick={() => setShowVisibleTle(prev => !prev)}
             style={{
-              background: '#00aa00',
-              color: 'white',
-              border: '1px solid #00ff00',
+              background: 'var(--accent-dim)',
+              color: 'var(--accent-on)',
+              border: '1px solid var(--accent)',
               padding: '6px 10px',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -401,9 +416,9 @@ function ControlPanel({
                 }}
                 title="Add planes (inclination) and phased satellites to target full Earth coverage"
                 style={{
-                  background: '#0088cc',
-                  color: 'white',
-                  border: '1px solid #00ccff',
+                  background: 'var(--btn-info-bg)',
+                  color: 'var(--accent-on)',
+                  border: '1px solid var(--btn-info-border)',
                   padding: '6px 10px',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -431,9 +446,9 @@ function ControlPanel({
               style={{
                 width: '100%',
                 padding: '8px',
-                background: '#111',
-                color: '#ddd',
-                border: '1px solid #555',
+                background: 'var(--textarea-bg)',
+                color: 'var(--textarea-text)',
+                border: '1px solid var(--input-border)',
                 borderRadius: '3px',
                 fontSize: '11px',
                 fontFamily: 'monospace',
@@ -449,7 +464,7 @@ function ControlPanel({
           <div style={{ marginBottom: '10px' }}>
             {savedTles.length > 0 && (
               <>
-                <div style={{ fontSize: '11px', color: '#ffcc00', marginBottom: '5px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--btn-saved-text)', marginBottom: '5px' }}>
                   Saved:
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginBottom: '10px' }}>
@@ -458,9 +473,9 @@ function ControlPanel({
                       <button
                         onClick={() => handleLoadSampleTle(null, saved)}
                         style={{
-                          background: '#444',
-                          color: '#ffcc00',
-                          border: '1px solid #665500',
+                          background: 'var(--btn-neutral-bg)',
+                          color: 'var(--btn-saved-text)',
+                          border: '1px solid var(--btn-saved-border)',
                           padding: '6px 8px',
                           borderRadius: '3px',
                           cursor: 'pointer',
@@ -470,12 +485,12 @@ function ControlPanel({
                           width: '100%'
                         }}
                         onMouseOver={(e) => {
-                          e.target.style.background = '#555';
-                          e.target.style.borderColor = '#ffcc00';
+                          e.target.style.background = 'var(--input-border)';
+                          e.target.style.borderColor = 'var(--btn-saved-text)';
                         }}
                         onMouseOut={(e) => {
-                          e.target.style.background = '#444';
-                          e.target.style.borderColor = '#665500';
+                          e.target.style.background = 'var(--btn-neutral-bg)';
+                          e.target.style.borderColor = 'var(--btn-saved-border)';
                         }}
                       >
                         {saved.rawName.length > 15 ? saved.rawName.substring(0, 12) + '...' : saved.rawName}
@@ -486,9 +501,9 @@ function ControlPanel({
                           position: 'absolute',
                           top: '-4px',
                           right: '-4px',
-                          background: '#552200',
-                          color: '#ff6644',
-                          border: '1px solid #773300',
+                          background: 'var(--btn-remove-saved-bg)',
+                          color: 'var(--btn-remove-saved-text)',
+                          border: '1px solid var(--btn-remove-saved-border)',
                           borderRadius: '50%',
                           width: '14px',
                           height: '14px',
@@ -506,7 +521,7 @@ function ControlPanel({
                 </div>
               </>
             )}
-            <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '5px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--accent)', marginBottom: '5px' }}>
               Popular:
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
@@ -515,9 +530,9 @@ function ControlPanel({
                   key={key}
                   onClick={() => addTLESatellite(tle.name, tle.line1, tle.line2)}
                   style={{
-                    background: '#444',
-                    color: 'white',
-                    border: '1px solid #666',
+                    background: 'var(--btn-neutral-bg)',
+                    color: 'var(--btn-neutral-text)',
+                    border: '1px solid var(--btn-neutral-border)',
                     padding: '6px 8px',
                     borderRadius: '3px',
                     cursor: 'pointer',
@@ -526,12 +541,12 @@ function ControlPanel({
                     transition: 'all 0.2s ease'
                   }}
                   onMouseOver={(e) => {
-                    e.target.style.background = '#555';
-                    e.target.style.borderColor = '#00ff00';
+                    e.target.style.background = 'var(--input-border)';
+                    e.target.style.borderColor = 'var(--accent)';
                   }}
                   onMouseOut={(e) => {
-                    e.target.style.background = '#444';
-                    e.target.style.borderColor = '#666';
+                    e.target.style.background = 'var(--btn-neutral-bg)';
+                    e.target.style.borderColor = 'var(--btn-neutral-border)';
                   }}
                 >
                   {tle.name.length > 15 ? tle.name.substring(0, 12) + '...' : tle.name}
@@ -543,7 +558,7 @@ function ControlPanel({
 
         {showTleInput && (
           <div style={{ 
-            background: 'rgba(0, 255, 0, 0.1)', 
+            background: 'var(--accent-soft-bg)', 
             padding: '15px', 
             borderRadius: '5px',
             marginBottom: '10px'
@@ -566,9 +581,9 @@ MOLNIYA 1-91
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#222',
-                  color: 'white',
-                  border: '1px solid #555',
+                  background: 'var(--input-bg)',
+                  color: 'var(--input-text)',
+                  border: '1px solid var(--input-border)',
                   borderRadius: '3px',
                   fontSize: '11px',
                   fontFamily: 'monospace',
@@ -576,7 +591,7 @@ MOLNIYA 1-91
                   lineHeight: '1.2'
                 }}
               />
-              <div style={{ fontSize: '10px', color: '#888', marginTop: '3px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--text-subtle)', marginTop: '3px' }}>
                 Each satellite: optional name line, then TLE line 1 (starts with "1 ") and TLE line 2 (starts with "2 ").
               </div>
             </div>
@@ -585,8 +600,8 @@ MOLNIYA 1-91
               <button
                 onClick={handleAddTleSatellite}
                 style={{
-                  background: '#00ff00',
-                  color: 'black',
+                  background: 'var(--accent)',
+                  color: 'var(--accent-on)',
                   border: 'none',
                   padding: '8px 16px',
                   borderRadius: '3px',
@@ -600,7 +615,7 @@ MOLNIYA 1-91
               </button>
             </div>
 
-            <div style={{ fontSize: '11px', color: '#00ff00', marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--accent)', marginBottom: '10px' }}>
               Sample TLEs:
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -609,9 +624,9 @@ MOLNIYA 1-91
                   key={key}
                   onClick={() => handleLoadSampleTle(key)}
                   style={{
-                    background: '#333',
-                    color: 'white',
-                    border: '1px solid #555',
+                    background: 'var(--btn-neutral-bg)',
+                    color: 'var(--btn-neutral-text)',
+                    border: '1px solid var(--btn-neutral-border)',
                     padding: '5px 8px',
                     borderRadius: '3px',
                     cursor: 'pointer',
@@ -630,12 +645,12 @@ MOLNIYA 1-91
         {tleSatellites.length > 0 && (
           <div style={{ marginTop: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', color: '#aaa' }}>{tleSatellites.length} satellite{tleSatellites.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{tleSatellites.length} satellite{tleSatellites.length !== 1 ? 's' : ''}</span>
               <button
                 onClick={removeAllTleSatellites}
                 style={{
-                  background: '#aa2222',
-                  color: 'white',
+                  background: 'var(--btn-danger-dark)',
+                  color: 'var(--accent-on)',
                   border: 'none',
                   padding: '3px 8px',
                   borderRadius: '3px',
@@ -650,7 +665,7 @@ MOLNIYA 1-91
               <div
                 key={satellite.id}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
+                  background: 'var(--sat-card-bg)',
                   padding: '8px',
                   borderRadius: '3px',
                   marginBottom: '5px',
@@ -671,8 +686,8 @@ MOLNIYA 1-91
                       onClick={() => saveTle(satellite)}
                       title="Save to favorites"
                       style={{
-                        background: '#335500',
-                        color: '#88ff44',
+                        background: 'var(--btn-save-bg)',
+                        color: 'var(--btn-save-text)',
                         border: 'none',
                         padding: '2px 6px',
                         borderRadius: '2px',
@@ -685,8 +700,8 @@ MOLNIYA 1-91
                     <button
                       onClick={() => removeTLESatellite(satellite.id)}
                       style={{
-                        background: '#ff4444',
-                        color: 'white',
+                        background: 'var(--btn-danger-bg)',
+                        color: 'var(--accent-on)',
                         border: 'none',
                         padding: '2px 6px',
                         borderRadius: '2px',
@@ -701,7 +716,7 @@ MOLNIYA 1-91
                 
                 
                 
-                <div style={{ marginTop: '3px', fontSize: '10px', color: '#ccc' }}>
+                <div style={{ marginTop: '3px', fontSize: '10px', color: 'var(--text-muted)' }}>
                   Alt: {satellite.tleData.perigeeAltitude.toFixed(0)}-{satellite.tleData.apogeeAltitude.toFixed(0)}km | 
                   Inc: {satellite.tleData.inclination.toFixed(1)}° | 
                   Period: {satellite.tleData.period.toFixed(1)}min
@@ -709,7 +724,7 @@ MOLNIYA 1-91
                 
                 {/* Current Position */}
                 {satelliteCoverageData[satellite.id] && satelliteCoverageData[satellite.id].latitude !== undefined && (
-                  <div style={{ marginTop: '3px', fontSize: '10px', color: '#88ccff' }}>
+                  <div style={{ marginTop: '3px', fontSize: '10px', color: 'var(--pos-text)' }}>
                     Pos: {satelliteCoverageData[satellite.id].latitude.toFixed(1)}° {satelliteCoverageData[satellite.id].latitude >= 0 ? 'N' : 'S'}, {Math.abs(satelliteCoverageData[satellite.id].longitude).toFixed(1)}° {satelliteCoverageData[satellite.id].longitude >= 0 ? 'E' : 'W'} | 
                     Alt: {satelliteCoverageData[satellite.id].satelliteAltitudeKm?.toFixed(0)}km
                   </div>
@@ -720,16 +735,16 @@ MOLNIYA 1-91
                   <div style={{ 
                     marginTop: '5px', 
                     padding: '4px 6px',
-                    background: 'rgba(0, 255, 0, 0.1)',
+                    background: 'var(--accent-soft-bg)',
                     borderRadius: '3px',
                     fontSize: '10px', 
-                    color: '#00ff00',
-                    border: '1px solid rgba(0, 255, 0, 0.3)'
+                    color: 'var(--accent)',
+                    border: '1px solid var(--accent-soft-border)'
                   }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
                       📡 Earth Coverage: {satelliteCoverageData[satellite.id].coveragePercentage?.toFixed(2)}%
                     </div>
-                    <div style={{ color: '#ccc', fontSize: '9px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
                       Area: {(satelliteCoverageData[satellite.id].coverageAreaKm2 / 1000000).toFixed(1)}M km² | 
                       Current Alt: {satelliteCoverageData[satellite.id].satelliteAltitudeKm?.toFixed(0)}km
                     </div>

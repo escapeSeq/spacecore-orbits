@@ -3,13 +3,34 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleParser';
 
-function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, showBeam = true, onCoverageUpdate, minElevationAngle = 0 }) {
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
+
+function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, showBeam = true, onCoverageUpdate, minElevationAngle = 0, theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME] }) {
   const satelliteRef = useRef();
   const orbitMeshRef = useRef();
   const coverageConeRef = useRef();
   const coverageRingRef = useRef();
   const lastOrbitUpdateRef = useRef(-Infinity);
-  
+  const signalColorRef = useRef(new THREE.Color(color));
+
+  // Keep beam, orbit, and coverage on the same satellite signal colour
+  const syncSignalMaterials = () => {
+    signalColorRef.current.set(color);
+    const c = signalColorRef.current;
+
+    if (orbitMeshRef.current?.material) {
+      orbitMeshRef.current.material.color.copy(c);
+      orbitMeshRef.current.material.opacity = theme.orbitOpacity;
+    }
+    if (coverageConeRef.current?.material) {
+      coverageConeRef.current.material.color.copy(c);
+      coverageConeRef.current.material.opacity = theme.beamOpacity;
+    }
+    if (coverageRingRef.current?.material) {
+      coverageRingRef.current.material.color.copy(c);
+      coverageRingRef.current.material.opacity = theme.coverageRingOpacity;
+    }
+  };
   // Constants
   const EARTH_RADIUS = 2; // Earth radius in our 3D scene (represents 6371 km)
   
@@ -80,6 +101,8 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
 
   // Animation loop
   useFrame((state, delta) => {
+    syncSignalMaterials();
+
     if (satelliteRef.current && tleData) {
       // Calculate current satellite position based on simulation time
       const baseTime = new Date();
@@ -239,20 +262,22 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
           <meshBasicMaterial 
             color={color} 
             transparent 
-            opacity={0.6}
+            opacity={theme.orbitOpacity}
+            toneMapped={!theme.highContrastSignals}
           />
         </mesh>
       )}
       
-      {/* Coverage cone */}
+      {/* Coverage cone — uses each satellite's signal colour */}
       {showCoverage && (
         <mesh ref={coverageConeRef}>
           <meshBasicMaterial 
             color={color}
             transparent 
-            opacity={0.15}
+            opacity={theme.beamOpacity}
             side={THREE.DoubleSide}
             depthWrite={false}
+            toneMapped={!theme.highContrastSignals}
           />
         </mesh>
       )}
@@ -261,7 +286,13 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
       {showCoverage && (
         <line ref={coverageRingRef}>
           <bufferGeometry />
-          <lineBasicMaterial color={color} transparent opacity={0.8} linewidth={1} />
+          <lineBasicMaterial
+            color={color}
+            transparent
+            opacity={theme.coverageRingOpacity}
+            linewidth={1}
+            toneMapped={!theme.highContrastSignals}
+          />
         </line>
       )}
       

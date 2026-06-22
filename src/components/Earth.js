@@ -5,7 +5,9 @@ import { useTexture } from '@react-three/drei';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
 
-function Earth({ simulationSpeed, showGrid = true, showModel = true }) {
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
+
+function Earth({ simulationSpeed, showGrid = true, showModel = true, theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME] }) {
   const earthRef = useRef();
 
   // Scene Earth radius
@@ -17,33 +19,41 @@ function Earth({ simulationSpeed, showGrid = true, showModel = true }) {
   // Load clean Earth texture
   const diffuseMap = useTexture('/textures/Diffuse_2K.png');
 
-  // Create a high-smoothness sphere for silhouette smoothing (rendered just inside)
+  // Silhouette sphere — dark on dark sky, soft grey on light sky
   const smoothingSphere = useMemo(() => {
     const geom = new THREE.SphereGeometry(SCENE_EARTH_RADIUS * 0.989, 128, 128);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
-    const mesh = new THREE.Mesh(geom, mat);
-    return mesh;
-  }, []);
+    const mat = new THREE.MeshBasicMaterial({
+      color: theme.earthSilhouetteColor,
+      side: THREE.BackSide,
+      toneMapped: !theme.highContrastSignals,
+    });
+    return new THREE.Mesh(geom, mat);
+  }, [theme.earthSilhouetteColor, theme.highContrastSignals]);
 
   // Clone and prepare the model
   const earthModel = useMemo(() => {
     if (obj) {
       const clonedObj = obj.clone();
-      
+      const brightness = theme.earthBrightness ?? 1;
+
       // Calculate the bounding box to determine proper scaling
       const box = new THREE.Box3().setFromObject(clonedObj);
       const size = box.getSize(new THREE.Vector3());
       const maxDimension = Math.max(size.x, size.y, size.z);
-      
+
       // Target diameter for exact Earth radius
       const targetDiameter = SCENE_EARTH_RADIUS * 2;
       const baseScaleFactor = targetDiameter / maxDimension;
       const modelScaleFactor = baseScaleFactor * 0.99; // 1% smaller to avoid z-fighting with grid
-      
-      // Apply flat material with only diffuse texture (no lighting/bump)
+
+      // Flat diffuse — brighten in light mode via colour multiplier
       clonedObj.traverse((child) => {
         if (child.isMesh) {
-          child.material = new THREE.MeshBasicMaterial({ map: diffuseMap });
+          child.material = new THREE.MeshBasicMaterial({
+            map: diffuseMap,
+            color: new THREE.Color(brightness, brightness, brightness),
+            toneMapped: !theme.highContrastSignals,
+          });
           child.castShadow = false;
           child.receiveShadow = false;
         }
@@ -57,7 +67,7 @@ function Earth({ simulationSpeed, showGrid = true, showModel = true }) {
       return clonedObj;
     }
     return null;
-  }, [obj, diffuseMap]);
+  }, [obj, diffuseMap, theme.earthBrightness, theme.highContrastSignals]);
 
   // Generate latitude and longitude grid lines (exact radius)
   const { latitudeLines, longitudeLines } = useMemo(() => {
@@ -129,13 +139,13 @@ function Earth({ simulationSpeed, showGrid = true, showModel = true }) {
           {latitudeLines.map((geom, idx) => (
             <line key={`lat-${idx}`}>
               <bufferGeometry attach="geometry" {...geom} />
-              <lineBasicMaterial color="#00ff00" transparent opacity={0.25} />
+              <lineBasicMaterial color={theme.gridColor} transparent opacity={theme.gridOpacity} />
             </line>
           ))}
           {longitudeLines.map((geom, idx) => (
             <line key={`lon-${idx}`}>
               <bufferGeometry attach="geometry" {...geom} />
-              <lineBasicMaterial color="#00ff00" transparent opacity={0.25} />
+              <lineBasicMaterial color={theme.gridColor} transparent opacity={theme.gridOpacity} />
             </line>
           ))}
         </group>

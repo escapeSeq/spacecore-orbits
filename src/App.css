@@ -2,19 +2,105 @@
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: #000;
   overflow: hidden;
+  --panel-bg: rgba(0, 0, 0, 0.8);
+  --panel-border: #333;
+  --panel-text: #ffffff;
+  --text-muted: #ccc;
+  --text-subtle: #888;
+  --text-dim: #aaa;
+  --accent: #00ff00;
+  --accent-dim: #00aa00;
+  --accent-soft-bg: rgba(0, 255, 0, 0.1);
+  --accent-soft-border: rgba(0, 255, 0, 0.3);
+  --accent-on: #000000;
+  --speed-gradient-start: #333;
+  --speed-gradient-end: #00ff00;
+  --elevation-gradient-end: #ff8800;
+  --input-bg: #222;
+  --input-border: #555;
+  --input-text: #ffffff;
+  --textarea-bg: #111;
+  --textarea-text: #ddd;
+  --btn-neutral-bg: #444;
+  --btn-neutral-border: #666;
+  --btn-neutral-text: #ffffff;
+  --btn-saved-text: #ffcc00;
+  --btn-saved-border: #665500;
+  --btn-danger-bg: #ff4444;
+  --btn-danger-dark: #aa2222;
+  --btn-info-bg: #0088cc;
+  --btn-info-border: #00ccff;
+  --btn-save-bg: #335500;
+  --btn-save-text: #88ff44;
+  --btn-remove-saved-bg: #552200;
+  --btn-remove-saved-text: #ff6644;
+  --btn-remove-saved-border: #773300;
+  --sat-card-bg: rgba(255, 255, 255, 0.1);
+  --pos-text: #88ccff;
+  --scrollbar-track: #333;
+  --scrollbar-thumb: #00ff00;
+  --scrollbar-thumb-hover: #00cc00;
+  --info-border: #333;
+  --info-label: #ccc;
+  --info-value: #00ff00;
+  background: var(--canvas-bg, #000);
+}
+
+.App[data-theme='light'] {
+  --panel-bg: rgba(255, 255, 255, 0.94);
+  --panel-border: #dbeafe;
+  --panel-text: #64748b;
+  --text-muted: #94a3b8;
+  --text-subtle: #a8b4c4;
+  --text-dim: #94a3b8;
+  --accent: #5eb3ff;
+  --accent-dim: #3d9eef;
+  --accent-soft-bg: rgba(94, 179, 255, 0.12);
+  --accent-soft-border: rgba(94, 179, 255, 0.35);
+  --accent-on: #ffffff;
+  --speed-gradient-start: #e2e8f0;
+  --speed-gradient-end: #5eb3ff;
+  --elevation-gradient-end: #ffb347;
+  --input-bg: #f8fafc;
+  --input-border: #cbd5e1;
+  --input-text: #64748b;
+  --textarea-bg: #f1f5f9;
+  --textarea-text: #64748b;
+  --btn-neutral-bg: #eef2f7;
+  --btn-neutral-border: #cbd5e1;
+  --btn-neutral-text: #64748b;
+  --btn-saved-text: #ffb347;
+  --btn-saved-border: #ffd699;
+  --btn-danger-bg: #ff708a;
+  --btn-danger-dark: #ff5a78;
+  --btn-info-bg: #67e8f9;
+  --btn-info-border: #a5f3fc;
+  --btn-save-bg: #5eead4;
+  --btn-save-text: #ffffff;
+  --btn-remove-saved-bg: #fff1f2;
+  --btn-remove-saved-text: #ff708a;
+  --btn-remove-saved-border: #ffc2cc;
+  --sat-card-bg: rgba(94, 179, 255, 0.06);
+  --pos-text: #5eb3ff;
+  --scrollbar-track: #eef2f7;
+  --scrollbar-thumb: #5eb3ff;
+  --scrollbar-thumb-hover: #3d9eef;
+  --info-border: #dbeafe;
+  --info-label: #94a3b8;
+  --info-value: #5eb3ff;
+  --canvas-bg: #fafafa;
 }
 
 .control-panel {
   position: absolute;
   top: 20px;
   left: 20px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
+  background: var(--panel-bg);
+  color: var(--panel-text);
   padding: 20px;
   border-radius: 10px;
-  border: 1px solid #333;
+  border: 1px solid var(--panel-border);
   backdrop-filter: blur(10px);
   min-width: 320px;
   max-width: 360px;
@@ -23,32 +109,57 @@
   overflow-x: hidden;
   z-index: 1000;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  
-  /* Custom scrollbar styling */
   scrollbar-width: thin;
-  scrollbar-color: #00ff00 #333;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
-/* Webkit scrollbar styling for Chrome/Safari */
 .control-panel::-webkit-scrollbar {
   width: 8px;
 }
 
 .control-panel::-webkit-scrollbar-track {
-  background: #333;
+  background: var(--scrollbar-track);
   border-radius: 4px;
 }
 
 .control-panel::-webkit-scrollbar-thumb {
-  background: #00ff00;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 .control-panel::-webkit-scrollbar-thumb:hover {
-  background: #00cc00;
+  background: var(--scrollbar-thumb-hover);
 }
 
-/* Canvas container to shift scene */
+.theme-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 3px;
+  background: var(--sat-card-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+
+.theme-toggle button {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.theme-toggle button.active {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: var(--accent-dim);
+}
+
 .canvas-wrapper {
   position: absolute;
   top: 0;
@@ -58,14 +169,18 @@
   display: flex;
 }
 
-/* Spacer equal to control panel width + margins */
 .canvas-left-spacer {
-  width: 400px; /* approx: panel (360) + margins */
+  width: 400px;
   flex: 0 0 auto;
 }
 
 .canvas-scene {
   flex: 1 1 auto;
+  background: var(--canvas-bg, #000);
+}
+
+.canvas-scene canvas {
+  display: block;
 }
 
 .control-group {
@@ -81,23 +196,23 @@
   letter-spacing: 1px;
 }
 
-.control-group input[type="range"] {
+.control-group input[type='range'] {
   width: 100%;
   margin-bottom: 5px;
 }
 
-.control-group input[type="number"] {
+.control-group input[type='number'] {
   width: 100%;
   padding: 5px;
-  border: 1px solid #555;
-  background: #222;
-  color: white;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
   border-radius: 3px;
 }
 
 .speed-display {
   font-size: 14px;
-  color: #00ff00;
+  color: var(--accent);
   text-align: center;
   margin-top: 5px;
 }
@@ -105,7 +220,7 @@
 .satellite-info {
   margin-top: 20px;
   padding-top: 15px;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--info-border);
 }
 
 .info-item {
@@ -116,10 +231,10 @@
 }
 
 .info-label {
-  color: #ccc;
+  color: var(--info-label);
 }
 
 .info-value {
-  color: #00ff00;
+  color: var(--info-value);
   font-weight: bold;
 }

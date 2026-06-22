@@ -1,8 +1,9 @@
-import React, { useState, useEffect, Component, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, Component, useRef } from 'react';
 import './App.css';
 import SpaceSimulation from './components/SpaceSimulation';
 import ControlPanel from './components/ControlPanel';
-import { parseTLE, SAMPLE_TLES } from './utils/tleParser';
+import { parseTLE } from './utils/tleParser';
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from './themes/colorSchemes';
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -59,11 +60,11 @@ class ErrorBoundary extends Component {
 
 function App() {
   const [simulationSpeed, setSimulationSpeed] = useState(1);
-  const [satelliteParams, setSatelliteParams] = useState({
+  const satelliteParams = {
     altitude: 400, // km above Earth's surface
     inclination: 51.6, // degrees (ISS-like orbit)
     speed: 7.66, // km/s (orbital velocity)
-  });
+  };
 
   // State for TLE satellites (not auto-persisted)
   const [tleSatellites, setTleSatellites] = useState([]);
@@ -78,7 +79,18 @@ function App() {
     }
     return [];
   });
-  const [showManualSatellite, setShowManualSatellite] = useState(false);
+  const showManualSatellite = false;
+
+  const [colorScheme, setColorScheme] = useState(() => {
+    try {
+      const stored = localStorage.getItem('spacecore_color_scheme');
+      if (stored && COLOR_SCHEMES[stored]) return stored;
+    } catch (e) {
+      console.warn('Failed to load color scheme:', e);
+    }
+    return DEFAULT_COLOR_SCHEME;
+  });
+  const theme = COLOR_SCHEMES[colorScheme];
   
   // State for satellite coverage data
   const [satelliteCoverageData, setSatelliteCoverageData] = useState({});
@@ -141,12 +153,7 @@ function App() {
     return grid;
   };
 
-  // Recompute global union coverage whenever satellites or coverage data change
-  useEffect(() => {
-    recomputeGlobalCoverage();
-  }, [tleSatellites, satelliteCoverageData]);
-
-  const recomputeGlobalCoverage = () => {
+  const recomputeGlobalCoverage = useCallback(() => {
     const active = tleSatellites.filter(s => s.showCoverage);
     const activeSatIds = active.map(s => s.id);
 
@@ -231,7 +238,12 @@ function App() {
     const percent = coveredFrac * 100;
     setGlobalCoveragePercent(percent);
     setGlobalCoverageAreaKm2((percent / 100) * totalEarthAreaKm2);
-  };
+  }, [tleSatellites, satelliteCoverageData, totalEarthAreaKm2]);
+
+  // Recompute global union coverage whenever satellites or coverage data change
+  useEffect(() => {
+    recomputeGlobalCoverage();
+  }, [recomputeGlobalCoverage]);
 
   // Function to add TLE satellite
   const addTLESatellite = (name, line1, line2) => {
@@ -240,7 +252,7 @@ function App() {
       const newSatellite = {
         id: Date.now(),
         tleData,
-        color: `hsl(${Math.random() * 360}, 70%, 50%)`, // Random color
+        color: theme.pickSatelliteColor(tleSatellites.length),
         showOrbit: true,
         showTrail: true,
         showCoverage: true,
@@ -312,9 +324,18 @@ function App() {
     setTleSatellites(prev => prev.map(sat => ({ ...sat, [property]: value })));
   };
 
+  const handleColorSchemeChange = (schemeId) => {
+    setColorScheme(schemeId);
+    try {
+      localStorage.setItem('spacecore_color_scheme', schemeId);
+    } catch (e) {
+      console.warn('Failed to save color scheme:', e);
+    }
+  };
+
   return (
     <ErrorBoundary>
-      <div className="App">
+      <div className="App" data-theme={colorScheme} style={{ '--canvas-bg': theme.canvas }}>
         <div className="canvas-wrapper">
           <div className="canvas-left-spacer" />
           <div className="canvas-scene">
@@ -327,6 +348,7 @@ function App() {
               minElevationAngle={minElevationAngle}
               showEarth={showEarth}
               showEarthGrid={showEarthGrid}
+              theme={theme}
             />
           </div>
         </div>
@@ -350,6 +372,8 @@ function App() {
           setShowEarth={setShowEarth}
           showEarthGrid={showEarthGrid}
           setShowEarthGrid={setShowEarthGrid}
+          colorScheme={colorScheme}
+          setColorScheme={handleColorSchemeChange}
         />
       </div>
     </ErrorBoundary>

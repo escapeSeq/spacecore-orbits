@@ -4,7 +4,6 @@
  */
 
 // Constants
-const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 const EARTH_RADIUS = 6378.137; // km
 const MU = 398600.4418; // Earth's gravitational parameter (km³/s²)

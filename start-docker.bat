@@ -15,7 +15,7 @@ if %errorlevel% neq 0 (
 :menu
 echo.
 echo Select an option:
-echo 1) Start Production Build (Port 3000)
+echo 1) Start Production Build (Port 3002)
 echo 2) Start Development Build (Port 3001) - Live Reload
 echo 3) View Logs
 echo 4) Stop All Services
@@ -40,7 +40,7 @@ goto menu
 :production
 echo 🔨 Building and starting production build...
 docker-compose up -d
-echo ✅ Application started! Access at: http://localhost:3000
+echo ✅ Application started! Access at: http://localhost:3002
 pause
 goto menu
 
