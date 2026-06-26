@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SAMPLE_TLES } from '../utils/tleParser';
 import { COLOR_SCHEMES } from '../themes/colorSchemes';
 
 function ControlPanel({ 
   simulationSpeed, 
   setSimulationSpeed,
+  isPaused = false,
+  setIsPaused,
+  simulationElapsedRef,
+  onDownloadModel,
   tleSatellites = [],
   addTLESatellite,
   removeTLESatellite,
@@ -32,14 +36,10 @@ function ControlPanel({
 
   // Simulation time (YYYY-MM-DD hh:mm)
   const [simTimeStr, setSimTimeStr] = useState('');
-  const simAnchorRealMsRef = useRef(Date.now());
-  const simAnchorDateRef = useRef(new Date());
   useEffect(() => {
     const update = () => {
-      const nowMs = Date.now();
-      const elapsedRealMs = nowMs - simAnchorRealMsRef.current;
-      const simMs = simAnchorDateRef.current.getTime() + elapsedRealMs * simulationSpeed;
-      const d = new Date(simMs);
+      const elapsedSeconds = simulationElapsedRef?.current ?? 0;
+      const d = new Date(Date.now() + elapsedSeconds * 1000);
       const yyyy = d.getFullYear();
       const mm2 = String(d.getMonth() + 1).padStart(2, '0');
       const dd2 = String(d.getDate()).padStart(2, '0');
@@ -50,7 +50,7 @@ function ControlPanel({
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, [simulationSpeed]);
+  }, [simulationElapsedRef, isPaused, simulationSpeed]);
   
   const handleSpeedChange = (e) => {
     setSimulationSpeed(parseFloat(e.target.value));
@@ -213,12 +213,14 @@ function ControlPanel({
           step="0.1"
           value={simulationSpeed}
           onChange={handleSpeedChange}
+          disabled={isPaused}
           style={{
             background: 'linear-gradient(to right, var(--speed-gradient-start), var(--speed-gradient-end))',
             height: '8px',
             borderRadius: '4px',
             outline: 'none',
-            appearance: 'none'
+            appearance: 'none',
+            opacity: isPaused ? 0.5 : 1,
           }}
         />
         <div className="speed-display">
@@ -226,6 +228,43 @@ function ControlPanel({
             ? `${(simulationSpeed * 100).toFixed(0)}% Real Time`
             : `${simulationSpeed.toFixed(1)}x Speed`
           }
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          <button
+            type="button"
+            onClick={() => setIsPaused((paused) => !paused)}
+            style={{
+              background: isPaused ? 'var(--accent)' : 'var(--btn-neutral-bg)',
+              color: isPaused ? 'var(--accent-on)' : 'var(--btn-neutral-text)',
+              border: `1px solid ${isPaused ? 'var(--accent)' : 'var(--btn-neutral-border)'}`,
+              padding: '8px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              flex: 1,
+            }}
+          >
+            {isPaused ? '▶ Resume' : '⏸ Pause'}
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadModel}
+            title="Download OBJ model of the current scene"
+            style={{
+              background: 'var(--btn-info-bg)',
+              color: 'var(--accent-on)',
+              border: '1px solid var(--btn-info-border)',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              flex: 1,
+            }}
+          >
+            ⬇ Download 3D Model
+          </button>
         </div>
       </div>
       

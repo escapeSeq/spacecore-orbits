@@ -2,7 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-function Satellite({ simulationSpeed, satelliteParams }) {
+function Satellite({ simulationSpeed, simulationElapsedRef, isPaused = false, satelliteParams }) {
   const satelliteRef = useRef();
   const orbitLineRef = useRef();
   
@@ -61,8 +61,9 @@ function Satellite({ simulationSpeed, satelliteParams }) {
   
   // Animation loop
   useFrame((state, delta) => {
-    if (satelliteRef.current) {
-      const time = state.clock.elapsedTime * simulationSpeed;
+    if (isPaused || !satelliteRef.current) return;
+
+    const time = simulationElapsedRef?.current ?? 0;
       const angle = -(time / orbitalPeriod) * Math.PI * 2; // Negative for correct counterclockwise rotation
       const inclination = (satelliteParams.inclination * Math.PI) / 180;
       
@@ -82,7 +83,6 @@ function Satellite({ simulationSpeed, satelliteParams }) {
       satelliteRef.current.lookAt(
         satelliteRef.current.position.clone().add(velocity.normalize())
       );
-    }
   });
   
   return (

@@ -5,7 +5,7 @@ import { calculateSatellitePosition, eciToSceneCoordinates } from '../utils/tleP
 
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
 
-function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, showBeam = true, onCoverageUpdate, minElevationAngle = 0, theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME] }) {
+function TLESatellite({ simulationSpeed, simulationElapsedRef, isPaused = false, tleData, color = "#00ff00", showOrbit = true, showCoverage = true, showBeam = true, onCoverageUpdate, minElevationAngle = 0, theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME] }) {
   const satelliteRef = useRef();
   const orbitMeshRef = useRef();
   const coverageConeRef = useRef();
@@ -106,11 +106,12 @@ function TLESatellite({ simulationSpeed, tleData, color = "#00ff00", showOrbit =
     if (satelliteRef.current && tleData) {
       // Calculate current satellite position based on simulation time
       const baseTime = new Date();
-      const simulationTime = new Date(baseTime.getTime() + state.clock.elapsedTime * simulationSpeed * 1000);
+      const elapsedSeconds = simulationElapsedRef?.current ?? 0;
+      const simulationTime = new Date(baseTime.getTime() + elapsedSeconds * 1000);
 
       // Dynamically update orbit path (single period, tube, includes J2 precession)
-      if (showOrbit && orbitMeshRef.current) {
-        const elapsedReal = state.clock.elapsedTime;
+      if (showOrbit && orbitMeshRef.current && !isPaused) {
+        const elapsedReal = elapsedSeconds / Math.max(simulationSpeed, 0.001);
         if (elapsedReal - lastOrbitUpdateRef.current > 2.0) { // update every 2s real time
           lastOrbitUpdateRef.current = elapsedReal;
 

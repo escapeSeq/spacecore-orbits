@@ -60,6 +60,9 @@ class ErrorBoundary extends Component {
 
 function App() {
   const [simulationSpeed, setSimulationSpeed] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
+  const simulationElapsedRef = useRef(0);
+  const [exportRequestId, setExportRequestId] = useState(0);
   const satelliteParams = {
     altitude: 400, // km above Earth's surface
     inclination: 51.6, // degrees (ISS-like orbit)
@@ -333,6 +336,12 @@ function App() {
     }
   };
 
+  const handleExportComplete = useCallback(() => {}, []);
+
+  const requestSceneExport = useCallback(() => {
+    setExportRequestId((id) => id + 1);
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="App" data-theme={colorScheme} style={{ '--canvas-bg': theme.canvas }}>
@@ -349,12 +358,20 @@ function App() {
               showEarth={showEarth}
               showEarthGrid={showEarthGrid}
               theme={theme}
+              isPaused={isPaused}
+              simulationElapsedRef={simulationElapsedRef}
+              exportRequestId={exportRequestId}
+              onExportComplete={handleExportComplete}
             />
           </div>
         </div>
         <ControlPanel 
           simulationSpeed={simulationSpeed}
           setSimulationSpeed={setSimulationSpeed}
+          isPaused={isPaused}
+          setIsPaused={setIsPaused}
+          simulationElapsedRef={simulationElapsedRef}
+          onDownloadModel={requestSceneExport}
           tleSatellites={tleSatellites}
           addTLESatellite={addTLESatellite}
           removeTLESatellite={removeTLESatellite}

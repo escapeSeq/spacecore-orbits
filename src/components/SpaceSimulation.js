@@ -1,4 +1,4 @@
-import React, { useRef, Suspense, useLayoutEffect } from 'react';
+import React, { useRef, Suspense, useLayoutEffect, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -7,6 +7,30 @@ import Earth from './Earth';
 import Satellite from './Satellite';
 import TLESatellite from './TLESatellite';
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
+import { exportSceneToObj } from '../utils/sceneExport';
+
+function SimulationClock({ simulationSpeed, isPaused, simulationElapsedRef }) {
+  useFrame((state, delta) => {
+    if (!isPaused) {
+      simulationElapsedRef.current += delta * simulationSpeed;
+    }
+  });
+  return null;
+}
+
+function SceneExporter({ exportRequestId, simulationElapsedRef, onExportComplete }) {
+  const { scene } = useThree();
+
+  useEffect(() => {
+    if (!exportRequestId) return;
+
+    const simulationTime = new Date(Date.now() + simulationElapsedRef.current * 1000);
+    exportSceneToObj(scene, simulationTime);
+    onExportComplete?.();
+  }, [exportRequestId, scene, simulationElapsedRef, onExportComplete]);
+
+  return null;
+}
 
 function SkyBackground({ color }) {
   const { scene, gl } = useThree();
@@ -54,6 +78,10 @@ function SpaceSimulation({
   showEarth = true,
   showEarthGrid = true,
   theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME],
+  isPaused = false,
+  simulationElapsedRef,
+  exportRequestId = 0,
+  onExportComplete,
 }) {
   return (
     <Canvas
@@ -70,6 +98,16 @@ function SpaceSimulation({
       }}
     >
       <SkyBackground color={theme.canvas} />
+      <SimulationClock
+        simulationSpeed={simulationSpeed}
+        isPaused={isPaused}
+        simulationElapsedRef={simulationElapsedRef}
+      />
+      <SceneExporter
+        exportRequestId={exportRequestId}
+        simulationElapsedRef={simulationElapsedRef}
+        onExportComplete={onExportComplete}
+      />
 
       {theme.showStars && (
         <ThemeStars key={theme.id} variant={theme.id} />
@@ -96,6 +134,7 @@ function SpaceSimulation({
 
         <Earth
           simulationSpeed={simulationSpeed}
+          isPaused={isPaused}
           showGrid={showEarthGrid}
           showModel={showEarth}
           theme={theme}
@@ -104,6 +143,8 @@ function SpaceSimulation({
         {showManualSatellite && (
           <Satellite
             simulationSpeed={simulationSpeed}
+            isPaused={isPaused}
+            simulationElapsedRef={simulationElapsedRef}
             satelliteParams={satelliteParams}
           />
         )}
@@ -112,6 +153,8 @@ function SpaceSimulation({
           <TLESatellite
             key={satellite.id}
             simulationSpeed={simulationSpeed}
+            isPaused={isPaused}
+            simulationElapsedRef={simulationElapsedRef}
             tleData={satellite.tleData}
             color={satellite.color}
             showOrbit={satellite.showOrbit}

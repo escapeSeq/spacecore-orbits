@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
 
-function Earth({ simulationSpeed, showGrid = true, showModel = true, theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME] }) {
+function Earth({ simulationSpeed, isPaused = false, showGrid = true, showModel = true, theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME] }) {
   const earthRef = useRef();
 
   // Scene Earth radius
@@ -113,6 +113,7 @@ function Earth({ simulationSpeed, showGrid = true, showModel = true, theme = COL
 
   // Earth rotation animation (apply to group containing globe + grid)
   useFrame((state, delta) => {
+    if (isPaused) return;
     const earthRotationSpeed = (2 * Math.PI) / (24 * 60 * 60); // radians per second for 24-hour day
     if (earthRef.current) {
       earthRef.current.rotation.y += earthRotationSpeed * delta * simulationSpeed;
