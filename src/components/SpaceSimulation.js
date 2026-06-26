@@ -34,6 +34,7 @@ function SceneExporter({ exportRequest, simulationElapsedRef, backgroundColor, o
         .then(() => onExportComplete?.())
         .catch((error) => {
           console.error('3D export failed:', error);
+          alert(error.message || '3D export failed. Please try again.');
           onExportComplete?.();
         });
     }

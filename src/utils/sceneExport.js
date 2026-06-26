@@ -2,7 +2,20 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter';
 
 function triggerDownload(content, filename, mimeType = 'text/plain') {
-  const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+  let blob;
+  if (content instanceof Blob) {
+    blob = content;
+  } else if (content instanceof ArrayBuffer) {
+    blob = new Blob([content], { type: mimeType });
+  } else if (typeof content === 'object') {
+    blob = new Blob([JSON.stringify(content, null, 2)], { type: 'model/gltf+json' });
+    if (filename.endsWith('.glb')) {
+      filename = filename.replace(/\.glb$/, '.gltf');
+    }
+  } else {
+    blob = new Blob([content], { type: mimeType });
+  }
+
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -205,18 +218,29 @@ export function exportSceneToGlb(scene, simulationTime = new Date()) {
   const exportRoot = prepareSceneForExport(scene);
   const filename = `spacecore-orbit-${formatTimestamp(simulationTime)}.glb`;
 
+  if (exportRoot.children.length === 0) {
+    disposeExportRoot(exportRoot);
+    return Promise.reject(new Error('Nothing to export — show the globe or add satellites first.'));
+  }
+
   return new Promise((resolve, reject) => {
     const exporter = new GLTFExporter();
+    // three@0.130 API: parse(input, onDone, options) — no error callback argument
     exporter.parse(
       exportRoot,
       (result) => {
         disposeExportRoot(exportRoot);
-        triggerDownload(result, filename, 'model/gltf-binary');
-        resolve();
-      },
-      (error) => {
-        disposeExportRoot(exportRoot);
-        reject(error);
+        try {
+          if (!(result instanceof ArrayBuffer)) {
+            const gltfFilename = filename.replace(/\.glb$/, '.gltf');
+            triggerDownload(result, gltfFilename, 'model/gltf+json');
+          } else {
+            triggerDownload(result, filename, 'model/gltf-binary');
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
       },
       {
         binary: true,
