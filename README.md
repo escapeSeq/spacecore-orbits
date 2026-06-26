@@ -8,17 +8,16 @@ A React-based 3D Earth and satellite simulation using WebGL and Three.js. This a
 ## Features
 
 - **3D Earth Visualization**: Realistic Earth with procedural textures, atmosphere, and cloud layers
-- **Satellite Orbital Mechanics**: Accurate orbital calculations with configurable parameters
-- **TLE Support**: Add real satellites using Two-Line Element (TLE) format data
-- **Multiple Satellites**: Support for multiple satellites with different colors and visibility controls
-- **Speed Control**: Simulation speed from real-time to 1000x acceleration
-- **Interactive Controls**: 
-  - Manual satellite: altitude (200km to 35,786km), orbital inclination (0° to 180°)
-  - TLE satellites: Add any satellite using standard TLE format
-  - Preset orbits (ISS, Geostationary, Sun-Synchronous)
-  - Individual satellite orbit and trail visibility controls
+- **TLE Satellite Support**: Add real satellites from NORAD-style Two-Line Element data, with bulk paste, saved favorites, and coverage analysis
+- **Multiple Satellites**: Support for many satellites with unique colors and per-satellite visibility controls
+- **Coverage Analysis**: Earth coverage caps per satellite, global union coverage, and minimum elevation angle
+- **Constellation Planning**: Generate a minimal phased constellation from a single TLE to approximate full Earth coverage
+- **Speed Control**: Simulation speed from real-time to 1000x acceleration, with pause/resume
+- **Scene Export**:
+  - **3D Model (GLB)**: Download the visible scene as a textured GLB mesh
+  - **2D SVG**: Download a high-resolution snapshot of the current camera view
 - **3D Camera Controls**: Mouse-based rotation, zoom, and pan
-- **Orbital Information**: Real-time display of velocity, period, and orbital parameters
+- **Theme Support**: Light, dark, and other color schemes
 - **Performance Optimized**: WebGL optimization for smooth rendering
 
 ## Prerequisites
@@ -157,12 +156,13 @@ The application should automatically open in your default browser.
 
 ### Control Panel
 
-The control panel on the left side provides:
+The control panel provides simulation controls, export buttons, and TLE management:
 
-- **Simulation Speed**: Slider to control time acceleration (0.1x to 1000x)
-- **Altitude**: Adjust satellite height above Earth (200-35,786 km)
-- **Inclination**: Orbital plane angle (0-180 degrees)
-- **Preset Orbits**: Quick-select buttons for common orbits
+- **Simulation Speed**: Slider from 0.1x to 1000x, with pause/resume
+- **Export**: **⬇ 3D Model** and **⬇ 2D SVG** buttons (see [Scene Export](#scene-export) below)
+- **Minimum Elevation Angle**: Ground antenna elevation threshold for coverage calculations (0° = maximum coverage)
+- **Global Controls**: Toggle orbits, coverage caps, beams, globe, and grid for all satellites
+- **TLE Satellites**: Add, save, export, and manage real satellite orbits
 
 ### Camera Controls
 
@@ -171,64 +171,94 @@ The control panel on the left side provides:
 - **Mouse Right-Click + Drag**: Pan the view
 - **Reset**: Double-click to reset camera position
 
-### Orbital Information
+## Scene Export
 
-Real-time display shows:
-- Orbital velocity (km/s)
-- Orbital period (minutes)
-- Current altitude and inclination
+Export the current simulation state from the control panel under the speed slider.
+
+### 3D Model (GLB)
+
+Click **⬇ 3D Model** to download a GLB file of the visible scene.
+
+- **Format**: GLB (binary glTF) with embedded textures
+- **Contents**: Earth globe, visible satellite meshes, orbit tubes, and coverage cones currently shown in the scene
+- **Excluded**: Line geometry (e.g. coverage rings), stars, lights, cameras, and hidden objects
+- **Filename**: `spacecore-orbit-YYYY-MM-DD-HHMMSS.glb` (timestamp reflects simulation time)
+- **Tip**: Position the camera and toggle visibility (globe, coverage, satellites) before exporting. At least one visible mesh is required.
+
+The GLB can be opened in Blender, three.js viewers, or other 3D tools for presentations, documentation, or further editing.
+
+### 2D SVG
+
+Click **⬇ 2D SVG** to download a vector snapshot of the current view.
+
+- **Format**: SVG with an embedded high-resolution PNG of the WebGL render (2× canvas resolution)
+- **Contents**: Exactly what you see on screen — Earth, satellites, coverage overlays, and theme background
+- **Filename**: `spacecore-orbit-YYYY-MM-DD-HHMMSS.svg`
+- **Tip**: Pause the simulation and frame the view you want before exporting. SVG is ideal for reports, slides, and print.
 
 ## TLE Satellite Support
 
-The simulation supports adding real satellites using Two-Line Element (TLE) format data. TLE is the standard format used by NORAD and other space agencies to distribute satellite orbital information.
+The simulation supports real satellites using **Two-Line Element (TLE)** data — the standard NORAD format for distributing orbital elements. Positions are propagated with an SGP4-based model.
+
+For a visual walkthrough of the TLE UI, see [TLE_GUIDE.md](TLE_GUIDE.md).
 
 ### Adding TLE Satellites
-1. Click **"Add TLE Satellite"** button in the control panel
-2. Enter the satellite name and the two TLE lines
-3. Click **"Add Satellite"** to add it to the simulation
 
-### Sample TLE Data
-The application includes sample TLE data for:
-- **ISS (ZARYA)**: International Space Station
-- **HST**: Hubble Space Telescope  
-- **STARLINK-1007**: SpaceX Starlink satellite
+**Quick add (popular satellites):** Click any preset button (ISS, Hubble, Starlink, NOAA-19, GPS, GOES-16, Terra, Molniya, OFEQ-16) to add it immediately.
 
-### TLE Data Sources
-You can get current TLE data from these sources:
-- [CelesTrak](https://celestrak.org/) - Comprehensive satellite database
-- [Space-Track](https://www.space-track.org/) - Official US government source
-- [N2YO](https://www.n2yo.com/) - Real-time satellite tracking
+**Bulk paste:**
+1. Click **🛰️ Add TLE Satellite(s)**
+2. Paste one or more TLE blocks. Each block is an optional name line followed by line 1 (starts with `1 `) and line 2 (starts with `2 `)
+3. Click **Add Satellite(s)** — all valid pairs are added at once
 
-### TLE Format Example
+**Example (single satellite):**
 ```
 ISS (ZARYA)
 1 25544U 98067A   24001.00000000  .00020137  00000-0  16538-3 0  9993
 2 25544  51.6461 339.2377 0001078  88.2548 271.9142 15.48919103123456
 ```
 
+**Example (multiple satellites):**
+```
+ISS (ZARYA)
+1 25544U 98067A   24001.00000000  .00020137  00000-0  16538-3 0  9993
+2 25544  51.6461 339.2377 0001078  88.2548 271.9142 15.48919103123456
+
+MOLNIYA 1-91
+1 25485U 98054A   25220.25238000  -.00000045  00000+0  00000+0 0  9999
+2 25485  64.5387 331.0544 6772907 286.8560 13.3661  2.36441399 206179
+```
+
+### Saved TLEs
+
+- Click **☆** on any satellite card to save it to browser localStorage
+- Saved TLEs appear as quick-add buttons under **Saved:** in the control panel
+- Remove a saved entry with the ✕ on its button
+- Saved TLEs persist across sessions; active satellites in the scene do not
+
+### Show Visible TLE
+
+Click **Show Visible TLE** to display the raw TLE text for all satellites with coverage visible. Copy the output to share, archive, or import elsewhere.
+
+### Constellation Generator
+
+With at least one TLE satellite loaded, **Show minimal constellation (~100% coverage)** generates additional phased satellites across multiple orbital planes derived from the first satellite's TLE. Use this to explore what a minimal constellation might look like for near-global coverage at the current minimum elevation angle.
+
+### TLE Data Sources
+
+Current TLE data is available from:
+- [CelesTrak](https://celestrak.org/) — Comprehensive satellite database
+- [Space-Track](https://www.space-track.org/) — Official US government source
+- [N2YO](https://www.n2yo.com/) — Real-time satellite tracking
+
 ### Managing TLE Satellites
-- **Remove**: Click the ✕ button next to any satellite
-- **Toggle Orbit**: Show/hide the orbital path
-- **Toggle Trail**: Show/hide the satellite's movement trail
-- **Multiple Satellites**: Add as many satellites as needed (each gets a unique color)
-- **Manual Satellite**: Toggle visibility of the manually configured satellite
 
-## Preset Orbits
+Each satellite card shows altitude range, inclination, period, live position, and Earth coverage percentage.
 
-### International Space Station (ISS)
-- Altitude: 408 km
-- Inclination: 51.6°
-- Period: ~93 minutes
-
-### Geostationary Orbit
-- Altitude: 35,786 km
-- Inclination: 0°
-- Period: 24 hours
-
-### Sun-Synchronous Orbit
-- Altitude: 780 km
-- Inclination: 98.2°
-- Period: ~100 minutes
+- **Remove**: ✕ on the satellite card, or **Remove All**
+- **Save**: ☆ to add to saved favorites
+- **Global toggles**: Orbits, Coverage, Beams, Globe, Grid (under Global Controls)
+- **Global Earth Coverage**: Union of all visible coverage caps, shown as percentage and area
 
 ## Technical Details
 
@@ -248,11 +278,13 @@ ISS (ZARYA)
 
 ### Orbital Mechanics
 
-The simulation uses simplified Keplerian orbital mechanics:
-- Circular orbits (eccentricity = 0)
-- Two-body problem (Earth-satellite system)
+TLE satellites use SGP4-based propagation from parsed NORAD elements (inclination, RAAN, eccentricity, mean anomaly, mean motion, etc.).
+
+Coverage caps are computed from satellite altitude and the configured minimum elevation angle.
+
+Constants:
 - Gravitational parameter: μ = 398,600.4418 km³/s²
-- Earth radius: 6,371 km
+- Earth radius: 6,378.137 km
 
 ## Browser Compatibility
 
