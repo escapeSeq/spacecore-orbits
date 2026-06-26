@@ -36,135 +36,110 @@ function formatTimestamp(date) {
   return `${yyyy}-${mm}-${dd}-${hh}${mi}${ss}`;
 }
 
-function isEffectivelyVisible(object) {
-  let current = object;
-  while (current) {
-    if (current.visible === false) return false;
-    current = current.parent;
-  }
-  return true;
+function isLineObject(object) {
+  return object.isLine || object.isLineSegments || object.isLineLoop || object.type === 'Line';
 }
 
-function applyWorldTransform(target, source) {
-  target.position.set(0, 0, 0);
-  target.quaternion.identity();
-  target.scale.set(1, 1, 1);
-  target.matrix.copy(source.matrixWorld);
-  target.matrix.decompose(target.position, target.quaternion, target.scale);
-  target.updateMatrixWorld(true);
+function hasRenderableGeometry(mesh) {
+  const position = mesh.geometry?.attributes?.position;
+  return Boolean(position && position.count > 0);
 }
 
-function prepareMaterial(material) {
+function convertMaterialForGltf(material) {
   if (!material) {
     return new THREE.MeshStandardMaterial({ color: 0xffffff });
   }
 
   const materials = Array.isArray(material) ? material : [material];
-  const prepared = materials.map((mat) => {
-    const cloned = mat.clone();
-    cloned.transparent = cloned.transparent || cloned.opacity < 0.999;
-    if (cloned.map) {
-      cloned.map.needsUpdate = true;
-    }
-    return cloned;
+  const converted = materials.map((mat) => {
+    const transparent = mat.transparent || (mat.opacity !== undefined && mat.opacity < 0.999);
+    const std = new THREE.MeshStandardMaterial({
+      color: mat.color?.clone?.() ?? new THREE.Color(0xffffff),
+      map: mat.map || null,
+      transparent,
+      opacity: mat.opacity ?? 1,
+      side: mat.side ?? THREE.FrontSide,
+      depthWrite: mat.depthWrite !== false,
+      metalness: 0.05,
+      roughness: 0.9,
+    });
+    std.userData.exportConverted = true;
+    if (std.map) std.map.needsUpdate = true;
+    return std;
   });
 
-  return prepared.length === 1 ? prepared[0] : prepared;
+  return converted.length === 1 ? converted[0] : converted;
 }
 
-function cloneMeshForExport(object) {
-  const geometry = object.geometry?.clone?.();
-  if (!geometry) return null;
+function shouldRemoveFromExport(object) {
+  if (object.isLight || object.isCamera) return true;
+  if (object.isPoints) return true;
+  if (isLineObject(object)) return true;
+  if (object.userData?.exportExclude) return true;
 
-  const mesh = new THREE.Mesh(geometry, prepareMaterial(object.material));
-  applyWorldTransform(mesh, object);
-  return mesh;
-}
+  if (object.isMesh) {
+    if (!hasRenderableGeometry(object)) return true;
+    if (object.visible === false) return true;
 
-function clonePointsForExport(object) {
-  const geometry = object.geometry?.clone?.();
-  if (!geometry) return null;
-
-  const points = new THREE.Points(geometry, prepareMaterial(object.material));
-  applyWorldTransform(points, object);
-  return points;
-}
-
-function convertLineToTube(object) {
-  const geometry = object.geometry;
-  const positions = geometry?.attributes?.position;
-  if (!positions || positions.count < 2) return null;
-
-  const points = [];
-  for (let i = 0; i < positions.count; i++) {
-    points.push(new THREE.Vector3(
-      positions.getX(i),
-      positions.getY(i),
-      positions.getZ(i),
-    ));
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    if (materials.some((mat) => mat?.side === THREE.BackSide)) return true;
   }
 
-  const first = points[0];
-  const last = points[points.length - 1];
-  const isClosed = object.isLineLoop || (
-    points.length > 3 && first.distanceTo(last) < 1e-5
-  );
+  return false;
+}
 
-  const curvePoints = isClosed && first.distanceTo(last) < 1e-5
-    ? points.slice(0, -1)
-    : points;
+function sanitizeExportTree(root) {
+  const removeList = [];
+  const convertedMaterials = [];
 
-  const curve = curvePoints.length >= 2
-    ? new THREE.CatmullRomCurve3(curvePoints, isClosed)
-    : null;
-  if (!curve) return null;
+  root.traverse((object) => {
+    if (shouldRemoveFromExport(object)) {
+      removeList.push(object);
+      return;
+    }
 
-  const radius = object.userData?.exportLineRadius ?? 0.004;
-  const tubularSegments = Math.max(Math.min(curvePoints.length * 6, 256), 16);
-  const tubeGeometry = new THREE.TubeGeometry(curve, tubularSegments, radius, 6, isClosed);
-  const mesh = new THREE.Mesh(tubeGeometry, prepareMaterial(object.material));
-  applyWorldTransform(mesh, object);
-  return mesh;
+    if (object.isMesh && object.material) {
+      object.material = convertMaterialForGltf(object.material);
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      convertedMaterials.push(...materials);
+      object.castShadow = false;
+      object.receiveShadow = false;
+    }
+  });
+
+  removeList.forEach((object) => {
+    object.parent?.remove(object);
+  });
+
+  root.userData.__convertedMaterials = convertedMaterials;
+}
+
+function countExportMeshes(root) {
+  let count = 0;
+  root.traverse((object) => {
+    if (object.isMesh && hasRenderableGeometry(object)) count += 1;
+  });
+  return count;
 }
 
 function prepareSceneForExport(sourceScene) {
-  const root = new THREE.Group();
-  root.name = 'SpaceCoreOrbit';
-  const disposables = [];
-
   sourceScene.updateMatrixWorld(true);
 
-  sourceScene.traverse((object) => {
-    if (object.isLight || object.isCamera) return;
-    if (!isEffectivelyVisible(object)) return;
+  const exportRoot = new THREE.Group();
+  exportRoot.name = 'SpaceCoreOrbit';
 
-    let exported = null;
-
-    if (object.isMesh) {
-      exported = cloneMeshForExport(object);
-    } else if (object.isLine || object.isLineSegments || object.isLineLoop) {
-      exported = convertLineToTube(object);
-    } else if (object.isPoints) {
-      exported = clonePointsForExport(object);
-    }
-
-    if (exported) {
-      root.add(exported);
-      disposables.push(exported);
-    }
+  sourceScene.children.forEach((child) => {
+    if (child.isLight || child.isCamera) return;
+    exportRoot.add(child.clone(true));
   });
 
-  root.userData.__disposables = disposables;
-  return root;
+  sanitizeExportTree(exportRoot);
+  return exportRoot;
 }
 
 function disposeExportRoot(root) {
-  for (const object of root.userData.__disposables || []) {
-    object.geometry?.dispose?.();
-    const materials = object.material
-      ? (Array.isArray(object.material) ? object.material : [object.material])
-      : [];
-    materials.forEach((material) => material.dispose?.());
+  for (const material of root.userData.__convertedMaterials || []) {
+    material.dispose?.();
   }
 }
 
@@ -217,15 +192,16 @@ function captureSceneImage(gl, scene, camera, scale = 2) {
 export function exportSceneToGlb(scene, simulationTime = new Date()) {
   const exportRoot = prepareSceneForExport(scene);
   const filename = `spacecore-orbit-${formatTimestamp(simulationTime)}.glb`;
+  const meshCount = countExportMeshes(exportRoot);
 
-  if (exportRoot.children.length === 0) {
+  if (meshCount === 0) {
     disposeExportRoot(exportRoot);
     return Promise.reject(new Error('Nothing to export — show the globe or add satellites first.'));
   }
 
   return new Promise((resolve, reject) => {
     const exporter = new GLTFExporter();
-    // three@0.130 API: parse(input, onDone, options) — no error callback argument
+    // three@0.130 API: parse(input, onDone, options)
     exporter.parse(
       exportRoot,
       (result) => {
