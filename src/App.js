@@ -62,7 +62,7 @@ function App() {
   const [simulationSpeed, setSimulationSpeed] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const simulationElapsedRef = useRef(0);
-  const [exportRequestId, setExportRequestId] = useState(0);
+  const [exportRequest, setExportRequest] = useState({ id: 0, format: 'glb' });
   const satelliteParams = {
     altitude: 400, // km above Earth's surface
     inclination: 51.6, // degrees (ISS-like orbit)
@@ -283,7 +283,7 @@ function App() {
     }
     const entry = { rawName: satellite.rawName, rawLine1: satellite.rawLine1, rawLine2: satellite.rawLine2 };
     setSavedTles(prev => {
-      if (prev.some(s => s.rawLine1 === entry.rawLine1)) {
+      if (prev.some(s => s.rawLine1 === entry.rawLine1 && s.rawLine2 === entry.rawLine2)) {
         console.log('saveTle: already saved', entry.rawName);
         return prev;
       }
@@ -338,8 +338,8 @@ function App() {
 
   const handleExportComplete = useCallback(() => {}, []);
 
-  const requestSceneExport = useCallback(() => {
-    setExportRequestId((id) => id + 1);
+  const requestSceneExport = useCallback((format = 'glb') => {
+    setExportRequest((prev) => ({ id: prev.id + 1, format }));
   }, []);
 
   return (
@@ -360,7 +360,7 @@ function App() {
               theme={theme}
               isPaused={isPaused}
               simulationElapsedRef={simulationElapsedRef}
-              exportRequestId={exportRequestId}
+              exportRequest={exportRequest}
               onExportComplete={handleExportComplete}
             />
           </div>
@@ -371,7 +371,8 @@ function App() {
           isPaused={isPaused}
           setIsPaused={setIsPaused}
           simulationElapsedRef={simulationElapsedRef}
-          onDownloadModel={requestSceneExport}
+          onDownloadModel={() => requestSceneExport('glb')}
+          onDownloadSvg={() => requestSceneExport('svg')}
           tleSatellites={tleSatellites}
           addTLESatellite={addTLESatellite}
           removeTLESatellite={removeTLESatellite}

@@ -9,6 +9,7 @@ function ControlPanel({
   setIsPaused,
   simulationElapsedRef,
   onDownloadModel,
+  onDownloadSvg,
   tleSatellites = [],
   addTLESatellite,
   removeTLESatellite,
@@ -247,10 +248,12 @@ function ControlPanel({
           >
             {isPaused ? '▶ Resume' : '⏸ Pause'}
           </button>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
           <button
             type="button"
             onClick={onDownloadModel}
-            title="Download OBJ model of the current scene"
+            title="Download GLB model with colours, textures, and transparency"
             style={{
               background: 'var(--btn-info-bg)',
               color: 'var(--accent-on)',
@@ -263,7 +266,25 @@ function ControlPanel({
               flex: 1,
             }}
           >
-            ⬇ Download 3D Model
+            ⬇ 3D Model
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadSvg}
+            title="Download 2D SVG snapshot of the current view with colours and textures"
+            style={{
+              background: 'var(--btn-info-bg)',
+              color: 'var(--accent-on)',
+              border: '1px solid var(--btn-info-border)',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              flex: 1,
+            }}
+          >
+            ⬇ 2D SVG
           </button>
         </div>
       </div>

@@ -7,7 +7,7 @@ import Earth from './Earth';
 import Satellite from './Satellite';
 import TLESatellite from './TLESatellite';
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../themes/colorSchemes';
-import { exportSceneToObj } from '../utils/sceneExport';
+import { exportSceneToGlb, exportViewToSvg } from '../utils/sceneExport';
 
 function SimulationClock({ simulationSpeed, isPaused, simulationElapsedRef }) {
   useFrame((state, delta) => {
@@ -18,16 +18,26 @@ function SimulationClock({ simulationSpeed, isPaused, simulationElapsedRef }) {
   return null;
 }
 
-function SceneExporter({ exportRequestId, simulationElapsedRef, onExportComplete }) {
-  const { scene } = useThree();
+function SceneExporter({ exportRequest, simulationElapsedRef, backgroundColor, onExportComplete }) {
+  const { scene, gl, camera } = useThree();
 
   useEffect(() => {
-    if (!exportRequestId) return;
+    if (!exportRequest?.id) return;
 
     const simulationTime = new Date(Date.now() + simulationElapsedRef.current * 1000);
-    exportSceneToObj(scene, simulationTime);
-    onExportComplete?.();
-  }, [exportRequestId, scene, simulationElapsedRef, onExportComplete]);
+
+    if (exportRequest.format === 'svg') {
+      exportViewToSvg(gl, scene, camera, backgroundColor, simulationTime);
+      onExportComplete?.();
+    } else {
+      exportSceneToGlb(scene, simulationTime)
+        .then(() => onExportComplete?.())
+        .catch((error) => {
+          console.error('3D export failed:', error);
+          onExportComplete?.();
+        });
+    }
+  }, [exportRequest, scene, gl, camera, backgroundColor, simulationElapsedRef, onExportComplete]);
 
   return null;
 }
@@ -80,7 +90,7 @@ function SpaceSimulation({
   theme = COLOR_SCHEMES[DEFAULT_COLOR_SCHEME],
   isPaused = false,
   simulationElapsedRef,
-  exportRequestId = 0,
+  exportRequest = null,
   onExportComplete,
 }) {
   return (
@@ -95,6 +105,7 @@ function SpaceSimulation({
       gl={{
         antialias: true,
         alpha: false,
+        preserveDrawingBuffer: true,
       }}
     >
       <SkyBackground color={theme.canvas} />
@@ -104,8 +115,9 @@ function SpaceSimulation({
         simulationElapsedRef={simulationElapsedRef}
       />
       <SceneExporter
-        exportRequestId={exportRequestId}
+        exportRequest={exportRequest}
         simulationElapsedRef={simulationElapsedRef}
+        backgroundColor={theme.canvas}
         onExportComplete={onExportComplete}
       />
 
