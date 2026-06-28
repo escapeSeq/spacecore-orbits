@@ -10,6 +10,8 @@ function ControlPanel({
   simulationElapsedRef,
   onDownloadModel,
   onDownloadSvg,
+  onDownloadSvgAnimation,
+  isExporting = false,
   tleSatellites = [],
   addTLESatellite,
   removeTLESatellite,
@@ -253,6 +255,7 @@ function ControlPanel({
           <button
             type="button"
             onClick={onDownloadModel}
+            disabled={isExporting}
             title="Download GLB model with colours, textures, and transparency"
             style={{
               background: 'var(--btn-info-bg)',
@@ -260,10 +263,11 @@ function ControlPanel({
               border: '1px solid var(--btn-info-border)',
               padding: '8px 12px',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
               fontSize: '11px',
               fontWeight: 'bold',
               flex: 1,
+              opacity: isExporting ? 0.6 : 1,
             }}
           >
             ⬇ 3D Model
@@ -271,6 +275,7 @@ function ControlPanel({
           <button
             type="button"
             onClick={onDownloadSvg}
+            disabled={isExporting}
             title="Download 2D SVG snapshot of the current view with colours and textures"
             style={{
               background: 'var(--btn-info-bg)',
@@ -278,13 +283,36 @@ function ControlPanel({
               border: '1px solid var(--btn-info-border)',
               padding: '8px 12px',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
               fontSize: '11px',
               fontWeight: 'bold',
               flex: 1,
+              opacity: isExporting ? 0.6 : 1,
             }}
           >
             ⬇ 2D SVG
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+          <button
+            type="button"
+            onClick={onDownloadSvgAnimation}
+            disabled={isExporting}
+            title="Download a 10 second SVG animation at 20 fps (200 frames) of orbital motion from the current view"
+            style={{
+              background: 'var(--btn-info-bg)',
+              color: 'var(--accent-on)',
+              border: '1px solid var(--btn-info-border)',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              flex: 1,
+              opacity: isExporting ? 0.6 : 1,
+            }}
+          >
+            {isExporting ? '⏳ Exporting animation…' : '⬇ SVG Animation (10s @ 20fps)'}
           </button>
         </div>
       </div>

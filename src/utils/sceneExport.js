@@ -143,7 +143,7 @@ function disposeExportRoot(root) {
   }
 }
 
-function captureSceneImage(gl, scene, camera, scale = 2) {
+function captureSceneImage(gl, scene, camera, scale = 2, mimeType = 'image/png', quality = undefined) {
   scene.updateMatrixWorld(true);
 
   const size = gl.getSize(new THREE.Vector2());
@@ -186,7 +186,66 @@ function captureSceneImage(gl, scene, camera, scale = 2) {
   canvas.height = height;
   canvas.getContext('2d').putImageData(new ImageData(flipped, width, height), 0, 0);
 
-  return { dataUrl: canvas.toDataURL('image/png'), width, height };
+  const dataUrl = quality !== undefined
+    ? canvas.toDataURL(mimeType, quality)
+    : canvas.toDataURL(mimeType);
+
+  return { dataUrl, width, height };
+}
+
+export const SVG_ANIMATION_DURATION_SEC = 10;
+export const SVG_ANIMATION_FPS = 20;
+export const SVG_ANIMATION_FRAME_COUNT = SVG_ANIMATION_DURATION_SEC * SVG_ANIMATION_FPS;
+
+export { captureSceneImage };
+
+export function buildAnimatedSvg(
+  frames,
+  width,
+  height,
+  backgroundColor,
+  durationSec = SVG_ANIMATION_DURATION_SEC,
+) {
+  if (!frames.length) {
+    throw new Error('Animated SVG export requires at least one frame.');
+  }
+
+  const bg = backgroundColor.startsWith('#') ? backgroundColor : `#${backgroundColor}`;
+  const keyTimes = frames.map((_, index) => (index / frames.length).toFixed(6)).join(';');
+  const hrefValues = frames.map((_, index) => `#frame-${index}`).join(';');
+
+  const defs = frames.map((dataUrl, index) => (
+    `    <image id="frame-${index}" width="${width}" height="${height}" href="${dataUrl}" xlink:href="${dataUrl}"/>`
+  )).join('\n');
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
+    `     width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+    '  <defs>',
+    defs,
+    '  </defs>',
+    `  <rect width="100%" height="100%" fill="${bg}"/>`,
+    `  <use id="anim-frame" href="#frame-0" xlink:href="#frame-0" width="${width}" height="${height}">`,
+    `    <animate attributeName="href" attributeType="XML"`,
+    `             dur="${durationSec}s" repeatCount="indefinite" calcMode="discrete"`,
+    `             keyTimes="${keyTimes}" values="${hrefValues}"/>`,
+    '  </use>',
+    '</svg>',
+  ].join('\n');
+}
+
+export function exportAnimatedViewToSvg(
+  frames,
+  width,
+  height,
+  backgroundColor,
+  simulationTime = new Date(),
+  durationSec = SVG_ANIMATION_DURATION_SEC,
+) {
+  const svg = buildAnimatedSvg(frames, width, height, backgroundColor, durationSec);
+  const filename = `spacecore-orbit-${formatTimestamp(simulationTime)}-10s-20fps.svg`;
+  triggerDownload(svg, filename, 'image/svg+xml');
 }
 
 export function exportSceneToGlb(scene, simulationTime = new Date()) {
