@@ -64,6 +64,7 @@ function App() {
   const simulationElapsedRef = useRef(0);
   const [exportRequest, setExportRequest] = useState({ id: 0, format: 'glb' });
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(null);
   const satelliteParams = {
     altitude: 400, // km above Earth's surface
     inclination: 51.6, // degrees (ISS-like orbit)
@@ -337,14 +338,20 @@ function App() {
     }
   };
 
+  const handleExportProgress = useCallback((frame, total) => {
+    setExportProgress({ frame, total });
+  }, []);
+
   const handleExportComplete = useCallback(() => {
     setIsExporting(false);
+    setExportProgress(null);
   }, []);
 
   const requestSceneExport = useCallback((format = 'glb') => {
     if (isExporting) return;
     if (format === 'svg-animation') {
       setIsExporting(true);
+      return;
     }
     setExportRequest((prev) => ({ id: prev.id + 1, format }));
   }, [isExporting]);
@@ -369,6 +376,7 @@ function App() {
               simulationElapsedRef={simulationElapsedRef}
               exportRequest={exportRequest}
               onExportComplete={handleExportComplete}
+              onExportProgress={handleExportProgress}
               isExporting={isExporting}
             />
           </div>
@@ -383,6 +391,7 @@ function App() {
           onDownloadSvg={() => requestSceneExport('svg')}
           onDownloadSvgAnimation={() => requestSceneExport('svg-animation')}
           isExporting={isExporting}
+          exportProgress={exportProgress}
           tleSatellites={tleSatellites}
           addTLESatellite={addTLESatellite}
           removeTLESatellite={removeTLESatellite}

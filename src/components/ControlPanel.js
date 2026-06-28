@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SAMPLE_TLES } from '../utils/tleParser';
 import { COLOR_SCHEMES } from '../themes/colorSchemes';
 
@@ -12,6 +12,7 @@ function ControlPanel({
   onDownloadSvg,
   onDownloadSvgAnimation,
   isExporting = false,
+  exportProgress = null,
   tleSatellites = [],
   addTLESatellite,
   removeTLESatellite,
@@ -36,6 +37,21 @@ function ControlPanel({
   const [tleInput, setTleInput] = useState('');
   const [showTleInput, setShowTleInput] = useState(false);
   const [showVisibleTle, setShowVisibleTle] = useState(false);
+  const [exportsOpen, setExportsOpen] = useState(false);
+  const exportsRef = useRef(null);
+
+  useEffect(() => {
+    if (!exportsOpen) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (exportsRef.current && !exportsRef.current.contains(event.target)) {
+        setExportsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [exportsOpen]);
 
   // Simulation time (YYYY-MM-DD hh:mm)
   const [simTimeStr, setSimTimeStr] = useState('');
@@ -251,70 +267,93 @@ function ControlPanel({
             {isPaused ? '▶ Resume' : '⏸ Pause'}
           </button>
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+      </div>
+
+      <div className="control-group">
+        <label>Exports</label>
+        <div className="exports-dropdown" ref={exportsRef}>
           <button
             type="button"
-            onClick={onDownloadModel}
+            className="exports-dropdown-trigger"
+            onClick={() => !isExporting && setExportsOpen((open) => !open)}
             disabled={isExporting}
-            title="Download GLB model with colours, textures, and transparency"
-            style={{
-              background: 'var(--btn-info-bg)',
-              color: 'var(--accent-on)',
-              border: '1px solid var(--btn-info-border)',
-              padding: '8px 12px',
-              borderRadius: '4px',
-              cursor: isExporting ? 'not-allowed' : 'pointer',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              flex: 1,
-              opacity: isExporting ? 0.6 : 1,
-            }}
+            aria-expanded={exportsOpen}
+            aria-haspopup="menu"
           >
-            ⬇ 3D Model
+            {isExporting
+              ? `⏳ Frame ${exportProgress?.frame ?? 0}/${exportProgress?.total ?? 200}…`
+              : 'Exports ▾'}
           </button>
-          <button
-            type="button"
-            onClick={onDownloadSvg}
-            disabled={isExporting}
-            title="Download 2D SVG snapshot of the current view with colours and textures"
-            style={{
-              background: 'var(--btn-info-bg)',
-              color: 'var(--accent-on)',
-              border: '1px solid var(--btn-info-border)',
-              padding: '8px 12px',
-              borderRadius: '4px',
-              cursor: isExporting ? 'not-allowed' : 'pointer',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              flex: 1,
-              opacity: isExporting ? 0.6 : 1,
-            }}
-          >
-            ⬇ 2D SVG
-          </button>
+          {exportsOpen && !isExporting && (
+            <div className="exports-dropdown-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="exports-dropdown-item"
+                onClick={() => {
+                  onDownloadModel();
+                  setExportsOpen(false);
+                }}
+              >
+                3D Model
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="exports-dropdown-item"
+                onClick={() => {
+                  onDownloadSvg();
+                  setExportsOpen(false);
+                }}
+              >
+                2D SVG
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="exports-dropdown-item"
+                onClick={() => {
+                  onDownloadSvgAnimation();
+                  setExportsOpen(false);
+                }}
+              >
+                SVG Animation (10s @ 20fps)
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={`exports-dropdown-item${showVisibleTle ? ' active' : ''}`}
+                onClick={() => setShowVisibleTle((visible) => !visible)}
+              >
+                TLE
+              </button>
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-          <button
-            type="button"
-            onClick={onDownloadSvgAnimation}
-            disabled={isExporting}
-            title="Download a 10 second SVG animation at 20 fps (200 frames) of orbital motion from the current view"
-            style={{
-              background: 'var(--btn-info-bg)',
-              color: 'var(--accent-on)',
-              border: '1px solid var(--btn-info-border)',
-              padding: '8px 12px',
-              borderRadius: '4px',
-              cursor: isExporting ? 'not-allowed' : 'pointer',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              flex: 1,
-              opacity: isExporting ? 0.6 : 1,
-            }}
-          >
-            {isExporting ? '⏳ Exporting animation…' : '⬇ SVG Animation (10s @ 20fps)'}
-          </button>
-        </div>
+        {showVisibleTle && (
+          <div style={{ marginTop: '8px' }}>
+            <textarea
+              readOnly
+              value={tleSatellites
+                .filter(s => s.showCoverage && s.rawLine1 && s.rawLine2)
+                .map(s => `${s.rawName || s.tleData.name}\n${s.rawLine1}\n${s.rawLine2}`)
+                .join('\n\n')}
+              rows={8}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: 'var(--textarea-bg)',
+                color: 'var(--textarea-text)',
+                border: '1px solid var(--input-border)',
+                borderRadius: '3px',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                resize: 'vertical',
+                lineHeight: '1.2',
+              }}
+            />
+          </div>
+        )}
       </div>
       
       {/* Minimum Elevation Angle Control */}
@@ -445,24 +484,6 @@ function ControlPanel({
             {showTleInput ? '✕ Cancel' : '🛰️ Add TLE Satellite(s)'}
           </button>
 
-          {/* Show Visible TLE button (no auto copy) */}
-          <button
-            onClick={() => setShowVisibleTle(prev => !prev)}
-            style={{
-              background: 'var(--accent-dim)',
-              color: 'var(--accent-on)',
-              border: '1px solid var(--accent)',
-              padding: '6px 10px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              flex: '0 0 auto'
-            }}
-          >
-            {showVisibleTle ? 'Hide Visible TLE' : 'Show Visible TLE'}
-          </button>
-
           {/* Minimal constellation button when at least one satellite is present */}
           {(() => {
             const eligible = tleSatellites.filter(s => s.rawLine1 && s.rawLine2);
@@ -520,32 +541,6 @@ function ControlPanel({
             );
           })()}
         </div>
-
-        {/* Visible satellites TLE textbox */}
-        {showVisibleTle && (
-          <div style={{ marginBottom: '10px' }}>
-            <textarea
-              readOnly
-              value={tleSatellites
-                .filter(s => s.showCoverage && s.rawLine1 && s.rawLine2)
-                .map(s => `${s.rawName || s.tleData.name}\n${s.rawLine1}\n${s.rawLine2}`)
-                .join('\n\n')}
-              rows={8}
-              style={{
-                width: '100%',
-                padding: '8px',
-                background: 'var(--textarea-bg)',
-                color: 'var(--textarea-text)',
-                border: '1px solid var(--input-border)',
-                borderRadius: '3px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                resize: 'vertical',
-                lineHeight: '1.2'
-              }}
-            />
-          </div>
-        )}
 
         {/* Quick Add Satellites */}
         {!showTleInput && (

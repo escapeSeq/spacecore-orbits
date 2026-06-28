@@ -157,45 +157,53 @@ function captureSceneImage(gl, scene, camera, scale = 2, mimeType = 'image/png',
   });
 
   const prevTarget = gl.getRenderTarget();
+  const prevViewport = new THREE.Vector4();
+  gl.getViewport(prevViewport);
   const prevAspect = camera.aspect;
 
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
+  try {
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
 
-  gl.setRenderTarget(renderTarget);
-  gl.clear();
-  gl.render(scene, camera);
+    gl.setRenderTarget(renderTarget);
+    gl.setViewport(0, 0, width, height);
+    gl.clear();
+    gl.render(scene, camera);
 
-  gl.setRenderTarget(prevTarget);
-  camera.aspect = prevAspect;
-  camera.updateProjectionMatrix();
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixels);
 
-  const pixels = new Uint8Array(width * height * 4);
-  gl.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixels);
-  renderTarget.dispose();
+    const flipped = new Uint8ClampedArray(width * height * 4);
+    const rowBytes = width * 4;
+    for (let y = 0; y < height; y++) {
+      const srcOffset = (height - 1 - y) * rowBytes;
+      flipped.set(pixels.subarray(srcOffset, srcOffset + rowBytes), y * rowBytes);
+    }
 
-  const flipped = new Uint8ClampedArray(width * height * 4);
-  const rowBytes = width * 4;
-  for (let y = 0; y < height; y++) {
-    const srcOffset = (height - 1 - y) * rowBytes;
-    flipped.set(pixels.subarray(srcOffset, srcOffset + rowBytes), y * rowBytes);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').putImageData(new ImageData(flipped, width, height), 0, 0);
+
+    const dataUrl = quality !== undefined
+      ? canvas.toDataURL(mimeType, quality)
+      : canvas.toDataURL(mimeType);
+
+    return { dataUrl, width, height };
+  } finally {
+    renderTarget.dispose();
+    camera.aspect = prevAspect;
+    camera.updateProjectionMatrix();
+    gl.setRenderTarget(prevTarget);
+    gl.setViewport(prevViewport);
+    gl.state.reset();
   }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  canvas.getContext('2d').putImageData(new ImageData(flipped, width, height), 0, 0);
-
-  const dataUrl = quality !== undefined
-    ? canvas.toDataURL(mimeType, quality)
-    : canvas.toDataURL(mimeType);
-
-  return { dataUrl, width, height };
 }
 
 export const SVG_ANIMATION_DURATION_SEC = 10;
 export const SVG_ANIMATION_FPS = 20;
 export const SVG_ANIMATION_FRAME_COUNT = SVG_ANIMATION_DURATION_SEC * SVG_ANIMATION_FPS;
+export const SVG_ANIMATION_SIMULATION_SPAN_SEC = 600;
 
 export { captureSceneImage };
 
@@ -211,26 +219,28 @@ export function buildAnimatedSvg(
   }
 
   const bg = backgroundColor.startsWith('#') ? backgroundColor : `#${backgroundColor}`;
-  const keyTimes = frames.map((_, index) => (index / frames.length).toFixed(6)).join(';');
-  const hrefValues = frames.map((_, index) => `#frame-${index}`).join(';');
+  const frameDurationSec = durationSec / frames.length;
 
-  const defs = frames.map((dataUrl, index) => (
-    `    <image id="frame-${index}" width="${width}" height="${height}" href="${dataUrl}" xlink:href="${dataUrl}"/>`
-  )).join('\n');
+  const imageLayers = frames.map((dataUrl, index) => {
+    const showAt = (index * frameDurationSec).toFixed(4);
+    const hideAt = ((index + 1) * frameDurationSec).toFixed(4);
+    const lines = [
+      `  <image id="frame-${index}" width="${width}" height="${height}" opacity="0" href="${dataUrl}" xlink:href="${dataUrl}">`,
+      `    <set attributeName="opacity" to="1" begin="${showAt}s" fill="freeze"/>`,
+    ];
+    if (index < frames.length - 1) {
+      lines.push(`    <set attributeName="opacity" to="0" begin="${hideAt}s" fill="freeze"/>`);
+    }
+    lines.push('  </image>');
+    return lines.join('\n');
+  }).join('\n');
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
     `     width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
-    '  <defs>',
-    defs,
-    '  </defs>',
     `  <rect width="100%" height="100%" fill="${bg}"/>`,
-    `  <use id="anim-frame" href="#frame-0" xlink:href="#frame-0" width="${width}" height="${height}">`,
-    `    <animate attributeName="href" attributeType="XML"`,
-    `             dur="${durationSec}s" repeatCount="indefinite" calcMode="discrete"`,
-    `             keyTimes="${keyTimes}" values="${hrefValues}"/>`,
-    '  </use>',
+    imageLayers,
     '</svg>',
   ].join('\n');
 }

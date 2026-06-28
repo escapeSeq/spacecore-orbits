@@ -13,8 +13,8 @@ import {
   exportAnimatedViewToSvg,
   captureSceneImage,
   SVG_ANIMATION_DURATION_SEC,
-  SVG_ANIMATION_FPS,
   SVG_ANIMATION_FRAME_COUNT,
+  SVG_ANIMATION_SIMULATION_SPAN_SEC,
 } from '../utils/sceneExport';
 
 function SimulationClock({ simulationSpeed, isPaused, simulationElapsedRef, isExporting }) {
@@ -26,73 +26,86 @@ function SimulationClock({ simulationSpeed, isPaused, simulationElapsedRef, isEx
   return null;
 }
 
-function SceneExporter({ exportRequest, simulationElapsedRef, backgroundColor, onExportComplete }) {
+function AnimationSvgExporter({
+  simulationElapsedRef,
+  backgroundColor,
+  simulationSpeed,
+  onExportComplete,
+  onExportProgress,
+}) {
   const { scene, gl, camera, invalidate } = useThree();
-  const animationExportRef = useRef(null);
-  const activeExportIdRef = useRef(0);
+  const jobRef = useRef(null);
+  const propsRef = useRef({
+    backgroundColor,
+    simulationSpeed,
+    onExportComplete,
+    onExportProgress,
+  });
+  propsRef.current = {
+    backgroundColor,
+    simulationSpeed,
+    onExportComplete,
+    onExportProgress,
+  };
 
   useEffect(() => {
-    if (!exportRequest?.id) return;
+    const startElapsed = simulationElapsedRef.current;
+    jobRef.current = {
+      frameIndex: 0,
+      frames: [],
+      startElapsed,
+      width: 0,
+      height: 0,
+      readyToCapture: false,
+    };
+    invalidate();
 
-    if (exportRequest.format === 'svg-animation') {
-      activeExportIdRef.current = exportRequest.id;
-      animationExportRef.current = {
-        requestId: exportRequest.id,
-        frameIndex: 0,
-        frames: [],
-        startElapsed: simulationElapsedRef.current,
-        width: 0,
-        height: 0,
-      };
+    return () => {
+      jobRef.current = null;
+      simulationElapsedRef.current = startElapsed;
       invalidate();
-      return;
-    }
-
-    const simulationTime = new Date(Date.now() + simulationElapsedRef.current * 1000);
-
-    if (exportRequest.format === 'svg') {
-      exportViewToSvg(gl, scene, camera, backgroundColor, simulationTime);
-      onExportComplete?.();
-    } else {
-      exportSceneToGlb(scene, simulationTime)
-        .then(() => onExportComplete?.())
-        .catch((error) => {
-          console.error('3D export failed:', error);
-          alert(error.message || '3D export failed. Please try again.');
-          onExportComplete?.();
-        });
-    }
-  }, [exportRequest, scene, gl, camera, backgroundColor, simulationElapsedRef, onExportComplete, invalidate]);
+    };
+  }, [invalidate, simulationElapsedRef]);
 
   useFrame(() => {
-    const job = animationExportRef.current;
-    if (!job || job.requestId !== activeExportIdRef.current) return;
+    const job = jobRef.current;
+    if (!job || job.readyToCapture) return;
 
-    simulationElapsedRef.current = job.startElapsed + job.frameIndex / SVG_ANIMATION_FPS;
-  }, -1);
+    const { simulationSpeed: speed } = propsRef.current;
+    const simSpan = Math.max(
+      SVG_ANIMATION_SIMULATION_SPAN_SEC,
+      speed * SVG_ANIMATION_DURATION_SEC,
+    );
+    simulationElapsedRef.current = job.startElapsed
+      + (job.frameIndex / SVG_ANIMATION_FRAME_COUNT) * simSpan;
+    job.readyToCapture = true;
+  }, -100);
 
   useFrame(() => {
-    const job = animationExportRef.current;
-    if (!job || job.requestId !== activeExportIdRef.current) return;
+    const job = jobRef.current;
+    if (!job || !job.readyToCapture) return;
 
-    scene.updateMatrixWorld(true);
+    job.readyToCapture = false;
 
-    const { dataUrl, width, height } = captureSceneImage(gl, scene, camera, 1, 'image/jpeg', 0.82);
+    const captured = captureSceneImage(gl, scene, camera, 1, 'image/jpeg', 0.82);
     if (job.frameIndex === 0) {
-      job.width = width;
-      job.height = height;
+      job.width = captured.width;
+      job.height = captured.height;
     }
-    job.frames.push(dataUrl);
+    job.frames.push(captured.dataUrl);
     job.frameIndex += 1;
 
+    propsRef.current.onExportProgress?.(job.frameIndex, SVG_ANIMATION_FRAME_COUNT);
+
     if (job.frameIndex >= SVG_ANIMATION_FRAME_COUNT) {
-      const simulationTime = new Date(Date.now() + job.startElapsed * 1000);
+      const { backgroundColor: bg, onExportComplete: onDone } = propsRef.current;
       try {
+        const simulationTime = new Date(Date.now() + job.startElapsed * 1000);
         exportAnimatedViewToSvg(
           job.frames,
           job.width,
           job.height,
-          backgroundColor,
+          bg,
           simulationTime,
           SVG_ANIMATION_DURATION_SEC,
         );
@@ -101,14 +114,50 @@ function SceneExporter({ exportRequest, simulationElapsedRef, backgroundColor, o
         alert(error.message || 'Animated SVG export failed. Please try again.');
       } finally {
         simulationElapsedRef.current = job.startElapsed;
-        animationExportRef.current = null;
-        onExportComplete?.();
+        jobRef.current = null;
+        invalidate();
+        onDone?.();
       }
       return;
     }
 
     invalidate();
   }, 1000);
+
+  return null;
+}
+
+function SceneExporter({ exportRequest, simulationElapsedRef, backgroundColor, onExportComplete }) {
+  const { scene, gl, camera } = useThree();
+  const renderStateRef = useRef({ scene, gl, camera, backgroundColor, simulationElapsedRef, onExportComplete });
+  renderStateRef.current = { scene, gl, camera, backgroundColor, simulationElapsedRef, onExportComplete };
+
+  useEffect(() => {
+    const exportId = exportRequest?.id;
+    if (!exportId) return;
+
+    const { scene: currentScene, gl: currentGl, camera: currentCamera, backgroundColor: bg, simulationElapsedRef: elapsedRef, onExportComplete: onDone } = renderStateRef.current;
+    const simulationTime = new Date(Date.now() + elapsedRef.current * 1000);
+
+    if (exportRequest.format === 'svg') {
+      try {
+        exportViewToSvg(currentGl, currentScene, currentCamera, bg, simulationTime);
+      } catch (error) {
+        console.error('SVG export failed:', error);
+        alert(error.message || 'SVG export failed. Please try again.');
+      }
+      onDone?.();
+      return;
+    }
+
+    exportSceneToGlb(currentScene, simulationTime)
+      .then(() => onDone?.())
+      .catch((error) => {
+        console.error('3D export failed:', error);
+        alert(error.message || '3D export failed. Please try again.');
+        onDone?.();
+      });
+  }, [exportRequest?.id, exportRequest?.format]);
 
   return null;
 }
@@ -164,6 +213,7 @@ function SpaceSimulation({
   exportRequest = null,
   onExportComplete,
   isExporting = false,
+  onExportProgress,
 }) {
   return (
     <Canvas
@@ -173,7 +223,7 @@ function SpaceSimulation({
         near: 0.1,
         far: 1000,
       }}
-      style={{ background: theme.canvas }}
+      style={{ background: theme.canvas, width: '100%', height: '100%' }}
       gl={{
         antialias: true,
         alpha: false,
@@ -193,6 +243,15 @@ function SpaceSimulation({
         backgroundColor={theme.canvas}
         onExportComplete={onExportComplete}
       />
+      {isExporting && (
+        <AnimationSvgExporter
+          simulationElapsedRef={simulationElapsedRef}
+          backgroundColor={theme.canvas}
+          simulationSpeed={simulationSpeed}
+          onExportComplete={onExportComplete}
+          onExportProgress={onExportProgress}
+        />
+      )}
 
       {theme.showStars && (
         <ThemeStars key={theme.id} variant={theme.id} />

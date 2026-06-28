@@ -6,7 +6,7 @@ import {
 } from './sceneExport';
 
 describe('sceneExport animated SVG', () => {
-  test('uses frame defs to avoid semicolons in SMIL values', () => {
+  test('uses stacked images with SMIL set timing for each frame', () => {
     const frames = [
       'data:image/jpeg;base64,AAA',
       'data:image/jpeg;base64,BBB',
@@ -18,9 +18,9 @@ describe('sceneExport animated SVG', () => {
     expect(SVG_ANIMATION_FPS).toBe(20);
     expect(svg).toContain('id="frame-0"');
     expect(svg).toContain('id="frame-1"');
-    expect(svg).toContain('values="#frame-0;#frame-1"');
-    expect(svg).toContain('dur="10s"');
-    expect(svg).toContain('calcMode="discrete"');
-    expect(svg).not.toContain('values="data:image/jpeg;base64,AAA');
+    expect(svg).toContain('begin="0.0000s"');
+    expect(svg).toContain('begin="5.0000s"');
+    expect(svg).toContain('attributeName="opacity"');
+    expect(svg).not.toContain('attributeName="href"');
   });
 });
