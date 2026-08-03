@@ -131,33 +131,179 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-.theme-toggle {
+.theme-toggle-float {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1200;
+  width: 34px;
+  height: 34px;
   display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-  padding: 3px;
-  background: var(--sat-card-bg);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
   border: 1px solid var(--panel-border);
-  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--accent);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
 }
 
-.theme-toggle button {
-  flex: 1;
-  padding: 5px 8px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  background: transparent;
+.theme-toggle-float:hover {
+  border-color: var(--accent-soft-border);
+  color: var(--accent-dim);
+  transform: scale(1.05);
+}
+
+.panel-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 20px 0;
+}
+
+.panel-time {
+  font-size: 12px;
   color: var(--text-muted);
+  min-width: 0;
+}
+
+.instructions-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+  background: var(--sat-card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.theme-toggle button.active {
-  background: var(--accent);
-  color: var(--accent-on);
-  border-color: var(--accent-dim);
+.instructions-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft-bg);
+}
+
+.instructions-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* ~2 lines of text as top/bottom margin */
+  padding: 2em 12px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.instructions-modal {
+  /* Fill nearly the viewport; width follows 16:9 of the video stage */
+  --instructions-header-h: 44px;
+  width: min(
+    100%,
+    calc((100vh - 4em - var(--instructions-header-h)) * 16 / 9)
+  );
+  max-height: calc(100vh - 4em);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.instructions-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 var(--instructions-header-h);
+  height: var(--instructions-header-h);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--panel-border);
+  box-sizing: border-box;
+}
+
+.instructions-modal-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.instructions-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.instructions-share-btn,
+.instructions-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--sat-card-bg);
+  color: var(--panel-text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.instructions-share-btn:hover,
+.instructions-close-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft-bg);
+}
+
+.instructions-close-btn {
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+}
+
+.instructions-share-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.instructions-video-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100vh - 4em - var(--instructions-header-h));
+  background: #000;
+}
+
+.instructions-video-wrap video,
+.instructions-video-wrap iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #000;
 }
 
 .canvas-wrapper {

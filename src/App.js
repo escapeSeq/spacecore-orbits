@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, Component, useRef } from 'reac
 import './App.css';
 import SpaceSimulation from './components/SpaceSimulation';
 import ControlPanel from './components/ControlPanel';
+import ThemeToggle from './components/ThemeToggle';
+import InstructionsModal from './components/InstructionsModal';
 import { parseTLE } from './utils/tleParser';
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from './themes/colorSchemes';
 
@@ -96,7 +98,32 @@ function App() {
     return DEFAULT_COLOR_SCHEME;
   });
   const theme = COLOR_SCHEMES[colorScheme];
-  
+  const [instructionsOpen, setInstructionsOpen] = useState(
+    () => typeof window !== 'undefined' && window.location.hash === '#instructions'
+  );
+
+  useEffect(() => {
+    const syncFromHash = () => {
+      setInstructionsOpen(window.location.hash === '#instructions');
+    };
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
+  const openInstructions = useCallback(() => {
+    setInstructionsOpen(true);
+    if (window.location.hash !== '#instructions') {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#instructions`);
+    }
+  }, []);
+
+  const closeInstructions = useCallback(() => {
+    setInstructionsOpen(false);
+    if (window.location.hash === '#instructions') {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+  }, []);
+
   // State for satellite coverage data
   const [satelliteCoverageData, setSatelliteCoverageData] = useState({});
   
@@ -409,9 +436,13 @@ function App() {
           setShowEarth={setShowEarth}
           showEarthGrid={showEarthGrid}
           setShowEarthGrid={setShowEarthGrid}
+          onOpenInstructions={openInstructions}
+        />
+        <ThemeToggle
           colorScheme={colorScheme}
           setColorScheme={handleColorSchemeChange}
         />
+        <InstructionsModal open={instructionsOpen} onClose={closeInstructions} />
       </div>
     </ErrorBoundary>
   );

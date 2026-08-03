@@ -1,0 +1,11 @@
+screenshots/
+captures/
+audio/
+build/
+.venv/
+.tools/
+chrome-profile/
+*.mp4
+!Spacecore-Orbits-Instructions.mp4
+__pycache__/
+*.pyc

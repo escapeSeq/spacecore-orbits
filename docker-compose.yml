@@ -32,7 +32,7 @@ services:
       target: development
     container_name: spacecore-dev
     ports:
-      - "3001:3001"
+      - "3001:3000"
     volumes:
       - ./src:/app/src:ro
       - ./public:/app/public:ro
@@ -41,6 +41,8 @@ services:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true
       - FAST_REFRESH=true
+      - DISABLE_ESLINT_PLUGIN=true
+      - BROWSER=none
     stdin_open: true
     tty: true
     restart: unless-stopped

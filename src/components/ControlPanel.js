@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SAMPLE_TLES } from '../utils/tleParser';
-import { COLOR_SCHEMES } from '../themes/colorSchemes';
 
 function ControlPanel({ 
   simulationSpeed, 
@@ -30,8 +29,7 @@ function ControlPanel({
   setShowEarth,
   showEarthGrid,
   setShowEarthGrid,
-  colorScheme = 'dark',
-  setColorScheme,
+  onOpenInstructions,
 }) {
   // TLE input state
   const [tleInput, setTleInput] = useState('');
@@ -203,23 +201,18 @@ function ControlPanel({
   
   return (
     <div className="control-panel">
-      <div className="theme-toggle">
-        {Object.values(COLOR_SCHEMES).map((scheme) => (
-          <button
-            key={scheme.id}
-            type="button"
-            className={colorScheme === scheme.id ? 'active' : ''}
-            onClick={() => setColorScheme(scheme.id)}
-          >
-            {scheme.label}
-          </button>
-        ))}
-      </div>
       <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: 'var(--accent)' }}>
         🛰️ Spacecore Orbits
       </h2>
-      <div style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-        {simTimeStr}
+      <div className="panel-time-row">
+        <span className="panel-time">{simTimeStr}</span>
+        <button
+          type="button"
+          className="instructions-btn"
+          onClick={onOpenInstructions}
+        >
+          Instructions
+        </button>
       </div>
       
       {/* Simulation Speed Control */}
