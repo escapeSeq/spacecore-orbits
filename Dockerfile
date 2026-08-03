@@ -14,6 +14,11 @@ RUN npm install --no-package-lock --no-optional --verbose
 # Copy source code
 COPY . .
 
+# CRA ESLint plugin breaks on eslint-config-react-app/jest ("jest/globals" unknown)
+ENV DISABLE_ESLINT_PLUGIN=true
+ENV CI=true
+ENV GENERATE_SOURCEMAP=false
+
 # Build the application
 RUN npm run build
 

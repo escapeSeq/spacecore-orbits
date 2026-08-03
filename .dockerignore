@@ -16,6 +16,10 @@ build
 .env.test.local
 .env.production.local
 
+# Training / local tooling (keep public/videos for the app)
+docs/instructions-training
+screenshots
+
 # IDE files
 .vscode
 .idea
